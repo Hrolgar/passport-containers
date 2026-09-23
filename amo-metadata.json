@@ -1,0 +1,25 @@
+{
+  "name": {
+    "en-US": "Passport Containers"
+  },
+  "summary": {
+    "en-US": "Open each site in the right container automatically, with rules that sync through your Firefox account. Per-path rules, so two accounts on the same site can live in different containers."
+  },
+  "description": {
+    "en-US": "Passport keeps a list of URL to container rules and opens matching pages in that container. Unlike domain-only assignment, rules match on host and path, so github.com/work and github.com/personal can go to different containers. A regex form (prefix @) sees the query string as well.\n\nThe rules and container colours are stored in the extension's sync storage, which Firefox Sync carries with your account. Sign in on another machine, install Passport, and the containers are recreated by name and the rules are already there. Cookies never sync, so you still log in once per container per machine.\n\nAdd a rule for the current site from the toolbar popup, or edit the whole list on the options page. The most specific rule wins. Passport collects no data and talks to no server of its own."
+  },
+  "categories": [
+    "privacy-security"
+  ],
+  "homepage": {
+    "en-US": "https://hrolgar.com"
+  },
+  "is_experimental": false,
+  "version": {
+    "license": "MIT",
+    "release_notes": {
+      "en-US": "First public release."
+    }
+  },
+  "slug": "passport-containers"
+}

@@ -1,0 +1,46 @@
+{
+  "manifest_version": 2,
+  "name": "Passport Containers",
+  "version": "0.1.1",
+  "description": "Per-URL container rules that follow your Firefox account. Containers are recreated by name on every machine you sign in to.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "passport@hrolgar.com",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "permissions": [
+    "contextualIdentities",
+    "cookies",
+    "tabs",
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "matcher.js",
+      "background.js"
+    ]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_action": {
+    "default_title": "Passport",
+    "default_popup": "popup.html",
+    "default_icon": "icons/passport.svg"
+  },
+  "icons": {
+    "48": "icons/passport.svg",
+    "96": "icons/passport.svg"
+  },
+  "homepage_url": "https://hrolgar.com"
+}

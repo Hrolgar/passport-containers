@@ -1,0 +1,16 @@
+{
+  "name": "passport",
+  "version": "0.1.1",
+  "private": true,
+  "description": "URL to container rules synced through your Firefox account",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "lint": "web-ext lint -s src",
+    "build": "web-ext build -s src -a dist --overwrite-dest",
+    "run": "web-ext run -s src",
+    "sign": "web-ext sign -s src -a dist --channel unlisted"
+  },
+  "devDependencies": {
+    "web-ext": "^8.0.0"
+  }
+}

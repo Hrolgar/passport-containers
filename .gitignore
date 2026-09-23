@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.web-extension-id
+src/.amo-upload-uuid
