@@ -101,14 +101,13 @@
     await nudgeSync();
     return { ok: true, modified, created: true };
   }
-  // A tiny local bookmark change makes Firefox sync within seconds, which pulls the keyword down.
+  // Firefox syncs immediately once its change score passes a threshold (1000 on a single-device account, each
+  // bookmark change counts 301). Four small edits to a helper bookmark get it there, so the keyword lands in seconds.
   async function nudgeSync() {
     const title = "Passport sync";
-    let [ping] = await browser.bookmarks.search({ title });
-    if (!ping) { const [f] = (await browser.bookmarks.search({ title: "Passport" })).filter(b => !b.url); ping = await browser.bookmarks.create({ parentId: f ? f.id : "menu________", title, url: "https://addons.mozilla.org/firefox/addon/passport-containers/" }); }
-    await browser.bookmarks.update(ping.id, { title: title + "​" });
-    await new Promise(r => setTimeout(r, 1500));
-    await browser.bookmarks.update(ping.id, { title });
+    let [ping] = (await browser.bookmarks.search({ title })).filter(x => x.url);
+    if (!ping) { const [f] = (await browser.bookmarks.search({ title: "Passport" })).filter(x => !x.url); ping = await browser.bookmarks.create({ parentId: f ? f.id : "menu________", title, url: "https://addons.mozilla.org/firefox/addon/passport-containers/" }); }
+    for (let i = 0; i < 4; i++) { await browser.bookmarks.update(ping.id, { title: i % 2 ? title : title + "\u200b" }); await new Promise(r => setTimeout(r, 300)); }
   }
   async function status() { const acc = await load(); const { lastNative } = await browser.storage.local.get("lastNative"); return acc ? { connected: true, connectedAt: acc.connectedAt, lastNative } : { connected: false, lastNative }; }
 
