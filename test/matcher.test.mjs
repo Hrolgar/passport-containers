@@ -87,3 +87,17 @@ test("a bare keyword search maps to a shortcut, anything else does not", () => {
   assert.equal(keywordFromSearch("https://www.google.com/search?q=vg", sc), null);
   assert.equal(keywordFromSearch("https://www.vg.no/?q=pvg", sc), null);
 });
+
+const { containerHint, withHint, upsertRule } = createRequire(import.meta.url)("../src/matcher.js");
+test("?passport=Name picks the container and is stripped from the URL", () => {
+  assert.deepEqual(containerHint("https://www.example.com/news?passport=Work&x=1"), { container: "Work", url: "https://www.example.com/news?x=1" });
+  assert.deepEqual(containerHint("https://www.example.com/?passport=Client%20A"), { container: "Client A", url: "https://www.example.com/" });
+  assert.equal(containerHint("https://www.example.com/?q=passport"), null);
+  assert.equal(containerHint(withHint("https://www.example.com/a", "Work")).url, "https://www.example.com/a");
+});
+test("upsertRule replaces a rule with the same pattern, else appends", () => {
+  const t = "a.example , Work\nb.example/x , Personal\n";
+  assert.equal(upsertRule(t, "b.example/x", "Work"), "a.example , Work\nb.example/x , Work\n");
+  assert.equal(upsertRule(t, "https://c.example", "Client A"), "a.example , Work\nb.example/x , Personal\nc.example , Client A\n");
+  assert.equal(upsertRule("", "c.example", "Work"), "c.example , Work\n");
+});

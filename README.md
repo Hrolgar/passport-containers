@@ -36,6 +36,14 @@ Google, Bing, DuckDuckGo, Startpage, Ecosia, Brave, Qwant, Yahoo, Yandex and Kag
 default engine. `go mail` works as well. Passport keywords also carry the container, which a
 bookmark keyword never could.
 
+## One site, several containers
+
+Two keywords can point at the same URL with different containers (`pdb` to Personal, `kdb`
+to Work). Keyword launches bypass the rules, so a rule for that site does not pull them back.
+For bookmarks you click, put the container in the URL: `https://site/?passport=Work` opens
+in Work and the parameter is stripped before the site sees it. The popup has a checkbox that
+writes the bookmark that way. Rules stay the default for plain links and typed URLs.
+
 ## How it routes
 
 A `webRequest` blocking listener on top-level navigations checks the URL. If the tab is

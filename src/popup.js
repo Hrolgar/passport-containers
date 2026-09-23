@@ -29,6 +29,7 @@ async function passportFolderId(folders) {
   const m = await browser.runtime.sendMessage({ type: "match", url: tab.url });
   const cur = s.containers.find(c => c.cookieStoreId === tab.cookieStoreId);
   $("#cur").textContent = `This tab: ${cur ? cur.name : "no container"}` + (m.container ? ` (rule says ${m.container})` : " (no rule)");
+  if (m.container) { $("#rule").checked = false; $("#rulenote").textContent = `A rule already sends this to ${m.container}; tick to replace it.`; }
   const sel = $("#container");
   for (const c of s.containers) { const o = document.createElement("option"); o.value = c.name; o.textContent = c.name; if (cur && cur.name === c.name) o.selected = true; sel.append(o); }
   const o = document.createElement("option"); o.value = "__new"; o.textContent = "New container..."; sel.append(o);
@@ -45,12 +46,15 @@ async function passportFolderId(folders) {
     if (name === "__new") { name = $("#newname").value.trim(); if (!name) { $("#msg").textContent = "Give the new container a name."; return; } }
     const pattern = $("#pattern").value.trim();
     const done = [];
-    if (pattern) { await browser.runtime.sendMessage({ type: "addRule", line: `${pattern} , ${name}` }); done.push(`rule ${pattern} -> ${name}`); }
+    if ($("#rule").checked && pattern) { await browser.runtime.sendMessage({ type: "setRule", pattern, container: name }); done.push(`rule ${pattern} -> ${name}`); }
     if ($("#bm").checked) {
       let parentId = fsel.value || await passportFolderId(folders);
-      await browser.bookmarks.create({ parentId, title: $("#title").value.trim() || host, url: tab.url });
+      let url = tab.url;
+      if ($("#hint").checked) { const u = new URL(url); u.searchParams.set("passport", name); url = u.toString(); }
+      const dupes = (await browser.bookmarks.search({ url })).filter(b => b.parentId === parentId);
+      if (dupes.length) done.push("bookmark already there");
+      else { await browser.bookmarks.create({ parentId, title: $("#title").value.trim() || host, url }); done.push("bookmark"); }
       await browser.storage.local.set({ lastFolder: parentId });
-      done.push("bookmark");
       const kw = $("#keyword").value.trim().toLowerCase().split(/\s+/)[0];
       if (kw) { await browser.runtime.sendMessage({ type: "addShortcut", keyword: kw, url: tab.url, container: name }); done.push(`keyword "go ${kw}"`); }
     }

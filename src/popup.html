@@ -6,12 +6,15 @@ fieldset{border:1px solid #ddd;border-radius:4px;margin-top:10px;padding:6px 10p
 @media(prefers-color-scheme:dark){body{background:#1e1e1e;color:#ddd}input,select{background:#111;color:#ddd}label,legend{color:#aaa}fieldset{border-color:#444}}
 </style></head><body>
 <div id="cur"></div>
-<label>Always open</label><input id="pattern">
-<label>in container</label><select id="container"></select>
+<label>Container</label><select id="container"></select>
 <input id="newname" class="hidden" placeholder="New container name" style="margin-top:4px">
+<fieldset><legend><label style="display:inline"><input type="checkbox" id="rule" checked style="width:auto"> Rule: always open this pattern there</label></legend>
+  <input id="pattern"><small id="rulenote"></small>
+</fieldset>
 <fieldset><legend><label style="display:inline"><input type="checkbox" id="bm" checked style="width:auto"> Also bookmark it</label></legend>
   <label>Title</label><input id="title">
   <label>Folder</label><select id="folder"></select>
+  <label style="margin-top:6px"><input type="checkbox" id="hint" style="width:auto"> Bookmark opens in this container <small>(adds ?passport=Name to its URL, stripped on open)</small></label>
   <label>Keyword <small>(type it alone in the URL bar, like a bookmark keyword; opens in the container above; syncs)</small></label><input id="keyword" placeholder="mail">
 </fieldset>
 <button id="add">Add</button> <a id="opt" href="#" style="margin-left:8px">All rules</a>

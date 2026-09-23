@@ -97,6 +97,33 @@
     const k = q.toLowerCase();
     return shortcuts[k] ? k : null;
   }
-  const api = { parseRules, matchUrl, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch };
+  // Explicit container hint in a URL: https://site/?passport=Work  -> open in Work, strip the param.
+  // Lets a plain bookmark choose its container; bookmarks sync natively.
+  function containerHint(url) {
+    let u; try { u = new URL(url); } catch { return null; }
+    if (!/^https?:$/.test(u.protocol) || !u.searchParams.has("passport")) return null;
+    const container = (u.searchParams.get("passport") || "").trim();
+    u.searchParams.delete("passport");
+    return { container, url: u.toString() };
+  }
+  function withHint(url, container) {
+    const u = new URL(url); u.searchParams.set("passport", container); return u.toString();
+  }
+  // Upsert a plain/regex/glob rule by its pattern text, keeping the rest of the file as is.
+  function upsertRule(text, pattern, container) {
+    const key = pattern.trim().replace(/^https?:\/\//, "");
+    const lines = String(text || "").split(/\r?\n/);
+    let hit = false;
+    const out = lines.map(l => {
+      const i = l.lastIndexOf(",");
+      if (i < 0 || l.trim().startsWith("#")) return l;
+      const pat = l.slice(0, i).trim().replace(/^https?:\/\//, "");
+      if (pat === key) { hit = true; return `${key} , ${container}`; }
+      return l;
+    });
+    if (!hit) { if (out.length && out[out.length - 1].trim() === "") out.pop(); out.push(`${key} , ${container}`); }
+    return out.join("\n") + "\n";
+  }
+  const api = { parseRules, matchUrl, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

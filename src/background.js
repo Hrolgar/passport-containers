@@ -1,5 +1,5 @@
 /* global PassportMatcher */
-const { parseRules, matchUrl, containerNames, parseShortcuts, serializeShortcuts, keywordFromSearch } = PassportMatcher;
+const { parseRules, matchUrl, containerNames, parseShortcuts, serializeShortcuts, keywordFromSearch, containerHint, upsertRule } = PassportMatcher;
 const COLORS = ["blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const CHUNK = 7000; // storage.sync caps one item at 8 KiB
 
@@ -66,11 +66,17 @@ browser.omnibox.onInputChanged.addListener(async (text, suggest) => {
   suggest(Object.keys(shortcuts).filter(k => k.startsWith(q)).sort().slice(0, 8)
     .map(k => ({ content: k, description: `${k}  ${shortcuts[k].url}${shortcuts[k].container ? "  [" + shortcuts[k].container + "]" : ""}` })));
 });
+const bypass = new Set();  // URLs Passport itself is opening: the rule engine must let them through
+function allowOnce(url) { bypass.add(url); setTimeout(() => bypass.delete(url), 5000); }
+async function openInContainer(url, store, cur, { active = true, closeFresh = true } = {}) {
+  allowOnce(url);
+  if (cur && cur.cookieStoreId === store) { await browser.tabs.update(cur.id, { url }); return; }
+  await browser.tabs.create({ url, cookieStoreId: store, active, index: cur ? cur.index + 1 : undefined, windowId: cur ? cur.windowId : undefined });
+  if (closeFresh && cur && /^about:(blank|newtab|home)$/.test(cur.url || "")) browser.tabs.remove(cur.id).catch(() => {});
+}
 async function openShortcut(sc, cur, disposition = "currentTab") {
   const store = storeFor(sc.container) || "firefox-default";
-  if (cur && disposition === "currentTab" && cur.cookieStoreId === store) { await browser.tabs.update(cur.id, { url: sc.url }); return; }
-  await browser.tabs.create({ url: sc.url, cookieStoreId: store, active: disposition !== "newBackgroundTab", index: cur ? cur.index + 1 : undefined, windowId: cur ? cur.windowId : undefined });
-  if (cur && disposition === "currentTab" && /^about:(blank|newtab|home)$/.test(cur.url || "")) browser.tabs.remove(cur.id).catch(() => {});
+  await openInContainer(sc.url, store, disposition === "currentTab" ? cur : null, { active: disposition !== "newBackgroundTab" });
 }
 browser.omnibox.onInputEntered.addListener(async (text, disposition) => {
   await loading;
@@ -84,11 +90,21 @@ const inflight = new Set();
 browser.webRequest.onBeforeRequest.addListener(async details => {
   if (details.tabId < 0) return {};
   await loading;
+  if (bypass.has(details.url)) { bypass.delete(details.url); return {}; }
   // Bare keyword typed in the URL bar: Firefox sends it to the search engine, we take it instead.
   const kw = keywordFromSearch(details.url, shortcuts);
   if (kw) {
     let cur; try { cur = await browser.tabs.get(details.tabId); } catch { return {}; }
     openShortcut(shortcuts[kw], cur).catch(e => console.error("passport shortcut", e));
+    return { cancel: true };
+  }
+  // ?passport=Container in the URL (a bookmark that chose its container): honour it, strip it.
+  const hint = containerHint(details.url);
+  if (hint) {
+    const store = storeFor(hint.container);
+    let cur; try { cur = await browser.tabs.get(details.tabId); } catch { return {}; }
+    if (store) openInContainer(hint.url, store, cur).catch(e => console.error("passport hint", e));
+    else { allowOnce(hint.url); browser.tabs.update(cur.id, { url: hint.url }).catch(() => {}); }
     return { cancel: true };
   }
   const target = targetStore(details.url);
@@ -116,10 +132,9 @@ browser.runtime.onMessage.addListener(async msg => {
     await writeShortcuts(map); await reload(); return { ok: true };
   }
   if (msg.type === "saveShortcuts") { await writeShortcuts(parseShortcuts(msg.text)); await reload(); return { ok: true, count: Object.keys(shortcuts).length }; }
-  if (msg.type === "addRule") {
+  if (msg.type === "setRule") {
     const s = await readSync();
-    const text = (s.rulesText.trimEnd() + "\n" + msg.line + "\n").replace(/^\n/, "");
-    await writeSync(text, s.containerMeta); await reload(); return { ok: true };
+    await writeSync(upsertRule(s.rulesText, msg.pattern, msg.container), s.containerMeta); await reload(); return { ok: true };
   }
 });
 reload();
