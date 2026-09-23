@@ -87,6 +87,9 @@ async function renderHave() {
     fsel.value = last && folders.some(f => f.id === last) ? last : (pf ? pf.id : MENU);
     $("#bm").onchange = () => $("#bmbox").classList.toggle("hidden", !$("#bm").checked);
     await renderHave();
+    const acc = await browser.runtime.sendMessage({ type: "accountStatus" });
+    state.account = acc;
+    $("#kwhint").textContent = acc.connected ? "(becomes a real Firefox keyword on the bookmark, synced everywhere)" : "(Passport keyword: Enter works, no top suggestion. Connect your Mozilla account in settings for real keywords)";
     $("#keyword").focus();
   } catch (e) { $("#err").textContent = "Popup failed to load: " + e.message; }
 
@@ -98,19 +101,26 @@ async function renderHave() {
       if (name === "__new") { name = $("#newname").value.trim(); if (!name) throw new Error("Give the new container a name."); }
       const kw = $("#keyword").value.trim().toLowerCase().split(/\s+/)[0];
       const done = [];
-      if (kw) {
-        const existed = !!(state.shortcuts || {})[kw];
-        await browser.runtime.sendMessage({ type: "addShortcut", keyword: kw, url: tab.url, container: name });
-        done.push(`${existed ? "updated" : "added"} keyword ${kw} -> ${name}`);
-      }
-      if ($("#bm").checked) {
+      const native = !!(state.account && state.account.connected);
+      let bookmarkId = null;
+      if ($("#bm").checked || (kw && native)) {
         const parentId = $("#folder").value || await passportFolderId();
         let url = tab.url;
         if ($("#hint").checked) { const u = new URL(url); u.searchParams.set("passport", name); url = u.toString(); }
         const dupes = (await browser.bookmarks.search({ url })).filter(b => b.parentId === parentId);
-        if (dupes.length) done.push("bookmark was already there");
-        else { await browser.bookmarks.create({ parentId, title: $("#title").value.trim() || host, url }); done.push("bookmark added"); }
+        if (dupes.length) { bookmarkId = dupes[0].id; done.push("bookmark was already there"); }
+        else { const b = await browser.bookmarks.create({ parentId, title: $("#title").value.trim() || host, url }); bookmarkId = b.id; done.push("bookmark added"); }
         await browser.storage.local.set({ lastFolder: parentId });
+      }
+      if (kw && native) {
+        $("#msg").textContent = "Waiting for Firefox to upload the bookmark, then setting the keyword...";
+        const r = await browser.runtime.sendMessage({ type: "setNativeKeyword", bookmarkId, keyword: kw });
+        if (r.error) throw new Error(r.error);
+        done.push(`Firefox keyword ${kw} set (arrives on next sync, seconds)`);
+      } else if (kw) {
+        const existed = !!(state.shortcuts || {})[kw];
+        await browser.runtime.sendMessage({ type: "addShortcut", keyword: kw, url: tab.url, container: name });
+        done.push(`${existed ? "updated" : "added"} keyword ${kw} -> ${name}`);
       }
       if ($("#rule").checked) {
         const pattern = $("#pattern").value.trim();

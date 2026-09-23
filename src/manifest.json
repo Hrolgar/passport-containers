@@ -29,6 +29,8 @@
   "background": {
     "scripts": [
       "matcher.js",
+      "sync/fxa.js",
+      "sync/account.js",
       "background.js"
     ]
   },
