@@ -57,13 +57,12 @@ td.narrow{width:120px}td.act{width:36px;text-align:right}td.dotcell{width:24px}t
     <h2 style="margin-top:0">New container</h2>
     <div class="split" style="align-items:flex-end">
       <div class="field" style="margin-top:0;flex:1.2"><label>Name</label><input id="newcont" placeholder="Client B"></div>
-      <div class="field" style="margin-top:0;flex:0"><label>Passport look</label><span style="display:flex;gap:6px"><input type="color" id="newhex" value="#37adff" title="Any colour"><input id="newemoji" placeholder="emoji" maxlength="4" style="width:58px" title="Emoji shown by Passport"></span></div>
-      <div class="field" style="margin-top:0"><label>Firefox colour</label><div class="swatches" id="newcolor"></div></div>
-      <div class="field" style="margin-top:0;flex:2"><label>Firefox icon</label><div class="iconpick" id="newicon"></div></div>
+      <div class="field" style="margin-top:0"><label>Colour</label><div class="swatches" id="newcolor"></div></div>
+      <div class="field" style="margin-top:0;flex:2"><label>Icon</label><div class="iconpick" id="newicon"></div></div>
       <div class="field" style="margin-top:0;flex:0"><button class="primary" id="addcont">Create</button></div>
     </div>
   </div>
-  <table><thead><tr><th class="dotcell"></th><th>Name</th><th>Passport look</th><th>Firefox colour</th><th>Firefox icon</th><th>Used by</th><th>Here</th><th></th></tr></thead><tbody id="containers"></tbody></table>
+  <table><thead><tr><th class="dotcell"></th><th>Name</th><th>Colour</th><th>Icon</th><th>Used by</th><th>On this machine</th><th></th></tr></thead><tbody id="containers"></tbody></table>
   <div class="actions"><button class="primary" id="savecont">Save changes</button><span class="msg" id="msg-cont"></span><span class="err" id="err-cont"></span></div>
 </section>
 <section id="tab-advanced">

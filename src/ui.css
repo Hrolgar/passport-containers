@@ -28,5 +28,3 @@ td{padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:middle}td 
 .swatches button.on{border-color:var(--fg)}.swatches .blue{background:#37adff}.swatches .turquoise{background:#00c79a}.swatches .green{background:#51cd00}.swatches .yellow{background:#ffcb00}.swatches .orange{background:#ff9f00}.swatches .red{background:#ff613d}.swatches .pink{background:#ff4bda}.swatches .purple{background:#af51f5}
 .iconpick{display:flex;gap:3px;flex-wrap:wrap}.iconpick button{width:24px;height:24px;padding:3px;border-radius:5px;border:1px solid transparent;background:transparent}
 .iconpick button.on{border-color:var(--fg);background:var(--card)}.iconpick .ci{width:16px;height:16px}
-.ci.emoji{-webkit-mask:none;mask:none;background:none!important;font-size:14px;line-height:16px;text-align:center}
-input[type=color]{width:34px;height:26px;padding:1px 2px;border-radius:6px}

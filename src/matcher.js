@@ -140,18 +140,6 @@
   function serializeRules(rules) {
     return rules.map(r => (r.type === "regex" ? "@" : r.type === "glob" ? "!" : "") + r.pattern + " , " + r.container).join("\n") + (rules.length ? "\n" : "");
   }
-  // Firefox's fixed container palette, and the nearest of them to any hex colour
-  const FF_COLORS = { blue: "#37adff", turquoise: "#00c79a", green: "#51cd00", yellow: "#ffcb00", orange: "#ff9f00", red: "#ff613d", pink: "#ff4bda", purple: "#af51f5" };
-  function nearestColor(hex) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim()); if (!m) return null;
-    const v = parseInt(m[1], 16), r = v >> 16, g = (v >> 8) & 255, b = v & 255;
-    let best = null, bd = Infinity;
-    for (const [name, h] of Object.entries(FF_COLORS)) {
-      const w = parseInt(h.slice(1), 16), d = (r - (w >> 16)) ** 2 + (g - ((w >> 8) & 255)) ** 2 + (b - (w & 255)) ** 2;
-      if (d < bd) { bd = d; best = name; }
-    }
-    return best;
-  }
-  const api = { parseRules, serializeRules, nearestColor, FF_COLORS, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
+  const api = { parseRules, serializeRules, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

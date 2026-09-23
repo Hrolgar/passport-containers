@@ -26,10 +26,7 @@ function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.
 function dot(name) {
   const c = (state.containers || []).find(x => x.name.toLowerCase() === String(name || "").toLowerCase());
   if (!c) return el("span", "dot");
-  const m = (state.containerMeta || {})[c.name] || {};
-  if (m.emoji) { const e = el("span", "ci emoji", m.emoji); e.style.marginRight = "5px"; return e; }
-  const e = el("span", "ci " + (m.hex ? "" : c.color)); if (m.hex) e.style.background = m.hex;
-  e.style.setProperty("--m", `url(icons/ci/${c.icon || "fingerprint"}.svg)`); e.style.marginRight = "5px"; return e;
+  const e = el("span", "ci " + c.color); e.style.setProperty("--m", `url(icons/ci/${c.icon || "fingerprint"}.svg)`); e.style.marginRight = "5px"; return e;
 }
 function row(tag, parts, onRemove) {
   const r = el("div", "row"); r.append(el("span", "tag", tag));
