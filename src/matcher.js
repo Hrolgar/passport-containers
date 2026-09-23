@@ -32,7 +32,7 @@
     const next = hostPath.charAt(p.length);
     return next === "" || next === "/";
   }
-  function matchUrl(url, rules) {
+  function bestRule(url, rules) {
     let u; try { u = new URL(url); } catch { return null; }
     if (!/^https?:$/.test(u.protocol)) return null;
     const hostPath = u.host + u.pathname;
@@ -46,8 +46,10 @@
       } catch { /* bad regex: skip the rule */ }
       if (hit && (!best || r.pattern.length > best.pattern.length)) best = r;
     }
-    return best ? best.container : null;
+    return best;
   }
+  function matchRule(url, rules) { return bestRule(url, rules); }
+  function matchUrl(url, rules) { const r = bestRule(url, rules); return r ? r.container : null; }
   function containerNames(rules) { return [...new Set(rules.map(r => r.container))]; }
   // Shortcuts: "keyword , url , Container" per line. Typed as "go keyword" in the URL bar.
   function parseShortcuts(text) {
@@ -125,6 +127,16 @@
     if (!hit) out.push(`${key} , ${container}`);
     return out.join("\n") + "\n";
   }
-  const api = { parseRules, matchUrl, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
+  function removeRule(text, pattern) {
+    const key = pattern.trim().replace(/^https?:\/\//, "");
+    const out = String(text || "").split(/\r?\n/).filter(l => {
+      const i = l.lastIndexOf(",");
+      if (i < 0 || l.trim().startsWith("#")) return true;
+      return l.slice(0, i).trim().replace(/^https?:\/\//, "") !== key;
+    });
+    while (out.length && out[out.length - 1].trim() === "") out.pop();
+    return out.length ? out.join("\n") + "\n" : "";
+  }
+  const api = { parseRules, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

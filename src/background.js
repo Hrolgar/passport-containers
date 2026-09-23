@@ -1,5 +1,5 @@
 /* global PassportMatcher */
-const { parseRules, matchUrl, containerNames, parseShortcuts, serializeShortcuts, keywordFromSearch, containerHint, upsertRule } = PassportMatcher;
+const { parseRules, matchUrl, matchRule, removeRule, containerNames, parseShortcuts, serializeShortcuts, keywordFromSearch, containerHint, upsertRule } = PassportMatcher;
 const COLORS = ["blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const CHUNK = 7000; // storage.sync caps one item at 8 KiB
 
@@ -53,8 +53,11 @@ function reload() { loading = load().catch(e => console.error("passport load", e
 
 function storeFor(name) {
   if (!name) return null;
-  if (name.toLowerCase() === "default") return "firefox-default";
-  return idByName.get(name) || null;
+  const n = String(name).trim().toLowerCase();
+  if (n === "default") return "firefox-default";
+  if (idByName.has(name)) return idByName.get(name);
+  for (const [k, v] of idByName) if (k.toLowerCase() === n) return v;
+  return null;
 }
 function targetStore(url) { return storeFor(matchUrl(url, rules)); }
 
@@ -125,7 +128,11 @@ browser.contextualIdentities.onRemoved.addListener(() => reload());
 browser.runtime.onMessage.addListener(async msg => {
   if (msg.type === "get") { await loading; const s = await readSync(); return { ...s, shortcutsText: serializeShortcuts(s.shortcuts), containers: await browser.contextualIdentities.query({}) }; }
   if (msg.type === "save") { await writeSync(msg.rulesText, msg.containerMeta || containerMeta); await reload(); return { ok: true, count: rules.length }; }
-  if (msg.type === "match") { await loading; return { container: matchUrl(msg.url, rules) }; }
+  if (msg.type === "match") { await loading; const r = matchRule(msg.url, rules); return { container: r ? r.container : null, pattern: r ? r.pattern : null, type: r ? r.type : null }; }
+  if (msg.type === "deleteRule") {
+    const s = await readSync();
+    await writeSync(removeRule(s.rulesText, msg.pattern), s.containerMeta); await reload(); return { ok: true };
+  }
   if (msg.type === "addShortcut") {
     const s = await readSync();
     const map = { ...s.shortcuts, [String(msg.keyword).toLowerCase().split(/\s+/)[0]]: { url: msg.url, container: msg.container || "" } };

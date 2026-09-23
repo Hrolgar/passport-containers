@@ -101,3 +101,13 @@ test("upsertRule replaces a rule with the same pattern, else appends", () => {
   assert.equal(upsertRule(t, "https://c.example", "Client A"), "a.example , Work\nb.example/x , Personal\nc.example , Client A\n");
   assert.equal(upsertRule("", "c.example", "Work"), "c.example , Work\n");
 });
+
+const { matchRule, removeRule } = createRequire(import.meta.url)("../src/matcher.js");
+test("matchRule returns the winning rule and removeRule drops it by pattern", () => {
+  const t = "a.example , Work\n@b\\.example/\\?x , Personal\nc.example/p , Work\n";
+  const r = matchRule("https://c.example/p/q", parseRules(t));
+  assert.equal(r.pattern, "c.example/p"); assert.equal(r.container, "Work");
+  assert.equal(removeRule(t, "c.example/p"), "a.example , Work\n@b\\.example/\\?x , Personal\n");
+  assert.equal(removeRule(t, "https://a.example"), "@b\\.example/\\?x , Personal\nc.example/p , Work\n");
+  assert.equal(removeRule("a.example , Work\n", "a.example"), "");
+});

@@ -29,7 +29,12 @@ async function renderHave() {
   const box = $("#have"); box.innerHTML = "";
   const m = await browser.runtime.sendMessage({ type: "match", url: tab.url });
   const cur = state.containers.find(c => c.cookieStoreId === tab.cookieStoreId);
-  $("#cur").textContent = `This tab is in ${cur ? cur.name : "no container"}. ${m.container ? `A rule sends ${host} to ${m.container}.` : "No rule for this site."}`;
+  $("#cur").textContent = `This tab is in ${cur ? cur.name : "no container"}.`;
+  if (m.container) {
+    const r = el("div", "row"); r.append(el("span", "k", "rule"), el("span", "c", `${m.type === "plain" ? "" : m.type + " "}${m.pattern}  ->  ${m.container}`));
+    const del = el("button", null, "remove"); del.onclick = async () => { await browser.runtime.sendMessage({ type: "deleteRule", pattern: m.pattern }); renderHave(); };
+    r.append(del); box.append(r);
+  }
   const kws = Object.entries(state.shortcuts || {}).filter(([, v]) => sameSite(v.url));
   for (const [k, v] of kws) {
     const r = el("div", "row"); r.append(el("span", "k", k), el("span", "c", `${v.container || "default"}  ${v.url.replace(/^https?:\/\//, "")}`));
@@ -44,7 +49,7 @@ async function renderHave() {
     const del = el("button", null, "remove"); del.onclick = async () => { await browser.bookmarks.remove(b.id); renderHave(); };
     r.append(del); box.append(r);
   }
-  if (!kws.length && !bms.length) box.append(el("small", null, "nothing yet"));
+  if (!m.container && !kws.length && !bms.length) box.append(el("small", null, "nothing yet"));
 }
 
 (async () => {
