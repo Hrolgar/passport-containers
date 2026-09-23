@@ -8,7 +8,17 @@ let state = { rulesText: "", shortcuts: {}, containerMeta: {}, containers: [] };
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function input(val, ph) { const i = el("input"); i.value = val || ""; if (ph) i.placeholder = ph; return i; }
 function select(opts, val) { const s = el("select"); for (const o of opts) { const x = el("option", null, o.label ?? (o || "(auto)")); x.value = o.value ?? o; if ((o.value ?? o) === val) x.selected = true; s.append(x); } return s; }
-function containerInput(val) { const i = input(val, "Container"); i.setAttribute("list", "containerlist"); return i; }
+function containerInput(val) {
+  // dropdown of known containers, with "New..." turning into a text field
+  const wrap = el("span"); wrap.style.display = "flex"; wrap.style.gap = "6px";
+  const names = knownContainers(); if (val && !names.some(n => n.toLowerCase() === String(val).toLowerCase()) && val.toLowerCase() !== "default") names.push(val);
+  const s = select([...names.map(n => ({ value: n, label: n })), { value: "Default", label: "Default (no container)" }, { value: "__new", label: "New container..." }], val || names[0] || "Default");
+  const i = input("", "New container name"); i.classList.add("hidden");
+  s.onchange = () => { i.classList.toggle("hidden", s.value !== "__new"); if (s.value === "__new") i.focus(); };
+  wrap.append(s, i);
+  wrap.readValue = () => (s.value === "__new" ? i.value.trim() : s.value);
+  return wrap;
+}
 function td(...kids) { const c = el("td"); for (const k of kids) c.append(k); return c; }
 function removeBtn(tr) { const b = el("button", "ghost", "✕"); b.title = "Remove"; b.onclick = () => tr.remove(); return b; }
 function show(tab) {
@@ -31,8 +41,8 @@ function ruleRow(r = { type: "plain", pattern: "", container: "" }) {
 function readRules() {
   const out = [];
   for (const tr of $("#rules").children) {
-    const [p, t, c] = [...tr.querySelectorAll("input,select")];
-    if (p.value.trim() && c.value.trim()) out.push({ type: t.value, pattern: p.value.trim().replace(/^https?:\/\//, ""), container: c.value.trim() });
+    const p = tr.children[0].querySelector("input"), t = tr.children[1].querySelector("select"), c = tr.children[2].firstChild.readValue();
+    if (p.value.trim() && c) out.push({ type: t.value, pattern: p.value.trim().replace(/^https?:\/\//, ""), container: c });
   }
   return out;
 }
@@ -44,8 +54,8 @@ function kwRow(k = "", v = { url: "", container: "" }) {
 function readKeywords() {
   const lines = [];
   for (const tr of $("#keywords").children) {
-    const [k, u, c] = [...tr.querySelectorAll("input")];
-    if (k.value.trim() && u.value.trim()) lines.push(`${k.value.trim()} , ${u.value.trim()}${c.value.trim() ? " , " + c.value.trim() : ""}`);
+    const k = tr.children[0].querySelector("input"), u = tr.children[1].querySelector("input"), c = tr.children[2].firstChild.readValue();
+    if (k.value.trim() && u.value.trim()) lines.push(`${k.value.trim()} , ${u.value.trim()}${c && c !== "Default" ? " , " + c : ""}`);
   }
   return lines.join("\n");
 }
