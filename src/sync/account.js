@@ -67,7 +67,12 @@
     return acc;
   }
   // Wait until Firefox has uploaded the bookmark (it syncs within seconds of a bookmark change), then set the keyword.
-  async function setNativeKeyword(bookmarkId, keyword, { attempts = 12, delayMs = 5000 } = {}) {
+  async function setNativeKeyword(bookmarkId, keyword, opts) {
+    const started = Date.now();
+    try { const r = await doSetNativeKeyword(bookmarkId, keyword, opts); await browser.storage.local.set({ lastNative: { keyword, bookmarkId, ok: true, at: started, ms: Date.now() - started, ...r } }); return r; }
+    catch (e) { await browser.storage.local.set({ lastNative: { keyword, bookmarkId, ok: false, at: started, error: e.message } }); throw e; }
+  }
+  async function doSetNativeKeyword(bookmarkId, keyword, { attempts = 12, delayMs = 5000 } = {}) {
     const acc = await ready(); const hawk = hawkOf(acc), bulk = bulkOf(acc);
     let rec = null;
     for (let i = 0; i < attempts && !rec; i++) {
@@ -89,7 +94,7 @@
     await new Promise(r => setTimeout(r, 1500));
     await browser.bookmarks.update(ping.id, { title });
   }
-  async function status() { const acc = await load(); return acc ? { connected: true, connectedAt: acc.connectedAt } : { connected: false }; }
+  async function status() { const acc = await load(); const { lastNative } = await browser.storage.local.get("lastNative"); return acc ? { connected: true, connectedAt: acc.connectedAt, lastNative } : { connected: false, lastNative }; }
 
   root.PassportAccount = { connect, disconnect, status, setNativeKeyword, ready, load };
 })(globalThis);
