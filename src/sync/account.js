@@ -72,18 +72,34 @@
     try { const r = await doSetNativeKeyword(bookmarkId, keyword, opts); await browser.storage.local.set({ lastNative: { keyword, bookmarkId, ok: true, at: started, ms: Date.now() - started, ...r } }); return r; }
     catch (e) { await browser.storage.local.set({ lastNative: { keyword, bookmarkId, ok: false, at: started, error: e.message } }); throw e; }
   }
-  async function doSetNativeKeyword(bookmarkId, keyword, { attempts = 12, delayMs = 5000 } = {}) {
+  async function doSetNativeKeyword(bookmarkId, keyword, { attempts = 3, delayMs = 4000 } = {}) {
     const acc = await ready(); const hawk = hawkOf(acc), bulk = bulkOf(acc);
     let rec = null;
     for (let i = 0; i < attempts && !rec; i++) {
       try { rec = await F.getRecord(hawk, bulk, "bookmarks", bookmarkId); }
-      catch (e) { if (e.status !== 404) throw e; await new Promise(r => setTimeout(r, delayMs)); }
+      catch (e) { if (e.status !== 404) throw e; if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs)); }
     }
-    if (!rec) throw new Error("Firefox has not uploaded that bookmark yet. Try again in a minute.");
-    if (rec.data.keyword === keyword) return { ok: true, unchanged: true };
-    const modified = await F.putRecord(hawk, bulk, "bookmarks", bookmarkId, { ...rec.data, keyword: keyword || null }, rec.modified);
+    if (rec) {
+      if (rec.data.keyword === keyword) return { ok: true, unchanged: true };
+      const modified = await F.putRecord(hawk, bulk, "bookmarks", bookmarkId, { ...rec.data, keyword: keyword || null }, rec.modified);
+      await nudgeSync(); return { ok: true, modified };
+    }
+    // Firefox has not uploaded it yet: write the record ourselves, and add it to the parent's child list.
+    const [bm] = await browser.bookmarks.get(bookmarkId);
+    const parentSyncId = F.guidToSyncId(bm.parentId);
+    let parentTitle = ""; let parentRec = null;
+    try { parentRec = await F.getRecord(hawk, bulk, "bookmarks", parentSyncId); parentTitle = parentRec.data.title || ""; } catch (e) { if (e.status !== 404) throw e; }
+    if (!parentRec) throw new Error("The folder holding this bookmark is not on the server yet. Wait for Firefox to sync once, then try again.");
+    const record = { id: bookmarkId, type: "bookmark", title: bm.title || "", bmkUri: bm.url, description: null, loadInSidebar: false, tags: [], keyword: keyword || null, parentid: parentSyncId, parentName: parentTitle, dateAdded: bm.dateAdded || Date.now() };
+    const modified = await F.putRecord(hawk, bulk, "bookmarks", bookmarkId, record);
+    const children = Array.isArray(parentRec.data.children) ? parentRec.data.children.slice() : [];
+    if (!children.includes(bookmarkId)) {
+      const siblings = await browser.bookmarks.getChildren(bm.parentId); const idx = Math.max(0, siblings.findIndex(x => x.id === bookmarkId));
+      children.splice(Math.min(idx, children.length), 0, bookmarkId);
+      await F.putRecord(hawk, bulk, "bookmarks", parentSyncId, { ...parentRec.data, children }, parentRec.modified);
+    }
     await nudgeSync();
-    return { ok: true, modified };
+    return { ok: true, modified, created: true };
   }
   // A tiny local bookmark change makes Firefox sync within seconds, which pulls the keyword down.
   async function nudgeSync() {
