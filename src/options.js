@@ -123,17 +123,70 @@ async function saveBookmarks() {
   await renderBookmarks();
 }
 // ---------- containers
+const COLOR_OPTS = COLORS.filter(Boolean), ICON_OPTS = ICONS.filter(Boolean);
+function usage(name) {
+  const n = String(name).toLowerCase();
+  const r = parseRules(state.rulesText).filter(x => x.container.toLowerCase() === n).length;
+  const k = Object.values(state.shortcuts).filter(x => (x.container || "").toLowerCase() === n).length;
+  return { r, k, text: [r ? `${r} rule${r > 1 ? "s" : ""}` : "", k ? `${k} keyword${k > 1 ? "s" : ""}` : ""].filter(Boolean).join(", ") || "nothing" };
+}
+function contRow(c) {
+  // c: {name, color, icon, cookieStoreId?}  (cookieStoreId missing = not on this machine yet)
+  const tr = el("tr"); tr.dataset.store = c.cookieStoreId || ""; tr.dataset.orig = c.name;
+  const d = el("span", "dot " + (c.color || ""));
+  const name = input(c.name, "Name");
+  const cs = select(COLOR_OPTS.map(x => ({ value: x, label: x })), c.color || "blue");
+  const is = select(ICON_OPTS.map(x => ({ value: x, label: x })), c.icon || "fingerprint");
+  cs.onchange = () => { d.className = "dot " + cs.value; };
+  const u = usage(c.name);
+  const x = el("button", "ghost", "\u2715"); x.title = "Delete container from Firefox (only when nothing uses it)";
+  x.onclick = async () => {
+    if (u.r || u.k) { $("#err-cont").textContent = `${c.name} is still used by ${u.text}. Change those first.`; return; }
+    if (c.cookieStoreId) await browser.contextualIdentities.remove(c.cookieStoreId);
+    delete state.containerMeta[c.name]; tr.remove();
+  };
+  tr.append(td(d), td(name), td(cs), td(is), td(el("span", u.r || u.k ? null : "muted", u.text)), td(el("span", c.cookieStoreId ? null : "muted", c.cookieStoreId ? "yes" : "will be created on save")), td(x));
+  tr.firstChild.className = "dotcell"; tr.lastChild.className = "act"; return tr;
+}
 function renderContainers() {
   const tb = $("#containers"); tb.innerHTML = "";
-  for (const n of knownContainers()) {
-    const here = state.containers.find(c => c.name === n), m = state.containerMeta[n] || {};
-    const tr = el("tr"), d = el("span", "dot " + (m.color || (here && here.color) || ""));
-    const cs = select(COLORS, m.color || ""), is = select(ICONS, m.icon || "");
-    cs.onchange = () => { state.containerMeta[n] = { ...state.containerMeta[n], color: cs.value }; d.className = "dot " + (cs.value || (here && here.color) || ""); };
-    is.onchange = () => { state.containerMeta[n] = { ...state.containerMeta[n], icon: is.value }; };
-    tr.append(td(d), td(el("span", null, n)), td(cs), td(is), td(el("span", here ? null : "muted", here ? "yes" : "will be created on save")));
-    tr.firstChild.className = "dotcell"; tb.append(tr);
-  }
+  const rows = state.containers.map(c => ({ ...c }));
+  for (const n of knownContainers()) if (!rows.some(c => c.name.toLowerCase() === n.toLowerCase())) rows.push({ name: n, color: (state.containerMeta[n] || {}).color, icon: (state.containerMeta[n] || {}).icon });
+  for (const c of rows.sort((a, b) => a.name.localeCompare(b.name))) tb.append(contRow(c));
+}
+function renameEverywhere(oldName, newName) {
+  const o = oldName.toLowerCase();
+  state.rulesText = serializeRules(parseRules(state.rulesText).map(r => r.container.toLowerCase() === o ? { ...r, container: newName } : r));
+  for (const v of Object.values(state.shortcuts)) if ((v.container || "").toLowerCase() === o) v.container = newName;
+  if (state.containerMeta[oldName]) { state.containerMeta[newName] = state.containerMeta[oldName]; delete state.containerMeta[oldName]; }
+}
+async function saveContainers() {
+  $("#msg-cont").textContent = ""; $("#err-cont").textContent = "";
+  const renames = [];
+  try {
+    for (const tr of $("#containers").children) {
+      const name = tr.children[1].querySelector("input").value.trim();
+      const color = tr.children[2].querySelector("select").value, icon = tr.children[3].querySelector("select").value;
+      if (!name) continue;
+      state.containerMeta[name] = { color, icon };
+      if (tr.dataset.store) {
+        const cur = state.containers.find(c => c.cookieStoreId === tr.dataset.store);
+        if (cur && (cur.name !== name || cur.color !== color || cur.icon !== icon)) await browser.contextualIdentities.update(tr.dataset.store, { name, color, icon });
+        if (cur && cur.name !== name) renames.push([cur.name, name]);
+      } else {
+        await browser.contextualIdentities.create({ name, color, icon });
+      }
+    }
+    for (const [a, b] of renames) {
+      renameEverywhere(a, b);
+      // bookmark hints carry the name too
+      for (const bm of await managedBookmarks()) { try { const u = new URL(bm.url); if ((u.searchParams.get("passport") || "").toLowerCase() === a.toLowerCase()) { u.searchParams.set("passport", b); await browser.bookmarks.update(bm.id, { url: u.toString() }); } } catch {} }
+    }
+    await browser.runtime.sendMessage({ type: "save", rulesText: state.rulesText, containerMeta: state.containerMeta });
+    if (renames.length) await browser.runtime.sendMessage({ type: "saveShortcuts", text: serializeShortcuts(state.shortcuts) });
+    $("#msg-cont").textContent = renames.length ? `Saved. Renamed ${renames.map(([a, b]) => a + " to " + b).join(", ")} everywhere.` : "Saved and applied to Firefox.";
+  } catch (e) { $("#err-cont").textContent = "Firefox refused: " + e.message; }
+  await load();
 }
 // ---------- sites overview
 let siteEntries = [];  // {host, kind, container, text}
@@ -198,7 +251,8 @@ $("#saverules").onclick = () => saveRules(serializeRules(readRules()), "#msg-rul
 $("#addkw").onclick = () => { $("#keywords").append(kwRow()); $("#keywords").lastChild.children[1].querySelector("input").focus(); };
 $("#savekw").onclick = () => saveKeywords(readKeywords(), "#msg-kw");
 $("#savebm").onclick = saveBookmarks;
-$("#savecont").onclick = () => saveRules(state.rulesText, "#msg-cont");
+$("#savecont").onclick = saveContainers;
+$("#addcont").onclick = () => { $("#containers").append(contRow({ name: "", color: "blue", icon: "fingerprint" })); $("#containers").lastChild.children[1].querySelector("input").focus(); };
 $("#saveraw").onclick = async () => { await saveRules($("#rawrules").value, "#msg-raw"); await saveKeywords($("#rawkw").value, "#msg-raw"); $("#msg-raw").textContent = "Saved. Synced."; };
 $("#rfilter").oninput = () => filterRows($("#rules"), $("#rfilter").value);
 $("#kfilter").oninput = () => filterRows($("#keywords"), $("#kfilter").value);

@@ -29,17 +29,17 @@ async function writeSync(rulesText, meta) {
 async function ensureContainers() {
   const existing = await browser.contextualIdentities.query({});
   idByName = new Map(existing.map(c => [c.name, c.cookieStoreId]));
-  const wanted = new Set([...containerNames(rules), ...Object.values(shortcuts).map(x => x.container).filter(Boolean)]);
+  const findExisting = name => existing.find(c => c.name.toLowerCase() === String(name).toLowerCase());
+  const wanted = new Set([...containerNames(rules), ...Object.values(shortcuts).map(x => x.container).filter(Boolean), ...Object.keys(containerMeta)]);
   for (const name of wanted) {
     if (name.toLowerCase() === "default") continue;
     const meta = containerMeta[name] || {};
-    if (!idByName.has(name)) {
+    const cur = findExisting(name);
+    if (!cur) {
       const c = await browser.contextualIdentities.create({ name, color: meta.color || hashColor(name), icon: meta.icon || "fingerprint" });
       idByName.set(name, c.cookieStoreId);
-    } else if (meta.color || meta.icon) {
-      const cur = existing.find(c => c.name === name);
-      if ((meta.color && cur.color !== meta.color) || (meta.icon && cur.icon !== meta.icon))
-        await browser.contextualIdentities.update(cur.cookieStoreId, { color: meta.color || cur.color, icon: meta.icon || cur.icon });
+    } else if ((meta.color && cur.color !== meta.color) || (meta.icon && cur.icon !== meta.icon)) {
+      await browser.contextualIdentities.update(cur.cookieStoreId, { color: meta.color || cur.color, icon: meta.icon || cur.icon });
     }
   }
 }
