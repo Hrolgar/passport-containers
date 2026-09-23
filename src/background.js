@@ -33,7 +33,14 @@ async function ensureContainers() {
   const existing = await browser.contextualIdentities.query({});
   idByName = new Map(existing.map(c => [c.name, c.cookieStoreId]));
   const findExisting = name => existing.find(c => c.name.toLowerCase() === String(name).toLowerCase());
-  const wanted = new Set([...containerNames(rules), ...Object.values(shortcuts).map(x => x.container).filter(Boolean), ...Object.keys(containerMeta)]);
+  // Only what rules and keywords need gets created. Styling for a container that no longer exists
+  // and nothing refers to is dropped, so a container deleted in Firefox stays deleted.
+  const wanted = new Set([...containerNames(rules), ...Object.values(shortcuts).map(x => x.container).filter(Boolean)]);
+  let pruned = false;
+  for (const name of Object.keys(containerMeta)) {
+    if (!findExisting(name) && ![...wanted].some(w => w.toLowerCase() === name.toLowerCase())) { delete containerMeta[name]; pruned = true; }
+  }
+  if (pruned) await browser.storage.sync.set({ containerMeta });
   for (const name of wanted) {
     if (name.toLowerCase() === "default") continue;
     const meta = containerMeta[name] || {};
@@ -162,7 +169,12 @@ browser.commands.onCommand.addListener(async cmd => {
 
 // ---------- messages from popup / options
 browser.storage.onChanged.addListener((_, area) => { if (area === "sync") reload(); });
-browser.contextualIdentities.onRemoved.addListener(() => reload());
+browser.contextualIdentities.onRemoved.addListener(async info => {
+  // Deleted in Firefox: forget its styling unless a rule or keyword still needs it (then it comes back).
+  const name = info && info.contextualIdentity && info.contextualIdentity.name;
+  if (name && containerMeta[name]) { delete containerMeta[name]; await browser.storage.sync.set({ containerMeta }); }
+  reload();
+});
 browser.runtime.onMessage.addListener(async msg => {
   if (msg.type === "get") {
     await loading; const s = await readSync();

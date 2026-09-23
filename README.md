@@ -4,8 +4,9 @@ URL to container rules that follow your Firefox account. Runs in Firefox and Zen
 
 Why: Firefox's own Multi-Account Containers only maps a whole domain to one container and
 Containerise's per-path rules never leave the machine. Passport keeps per-path rules in
-`storage.sync`, which rides the Firefox account, and recreates the containers by name
-wherever you sign in. Bookmark keywords and tags already sync natively, so the whole
+`storage.sync`, which rides the Firefox account, and recreates the containers your rules and
+keywords name wherever you sign in. Containers nothing refers to are left alone, and deleting
+one in Firefox sticks. Bookmark keywords and tags already sync natively, so the whole
 identity setup arrives with one login on a new machine.
 
 ## Rules
