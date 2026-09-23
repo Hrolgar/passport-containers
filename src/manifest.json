@@ -52,7 +52,7 @@
   "commands": {
     "_execute_browser_action": {
       "suggested_key": {
-        "default": "Alt+Shift+P"
+        "default": "Alt+P"
       },
       "description": "Open the Passport popup"
     },
