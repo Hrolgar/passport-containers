@@ -49,6 +49,23 @@
     return best ? best.container : null;
   }
   function containerNames(rules) { return [...new Set(rules.map(r => r.container))]; }
-  const api = { parseRules, matchUrl, containerNames, globToRegex };
+  // Shortcuts: "keyword , url , Container" per line. Typed as "go keyword" in the URL bar.
+  function parseShortcuts(text) {
+    const out = {};
+    for (const raw of String(text || "").split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const parts = line.split(",").map(x => x.trim());
+      if (parts.length < 2 || !parts[0] || !parts[1]) continue;
+      const keyword = parts[0].toLowerCase().split(/\s+/)[0];
+      const url = /^[a-z]+:\/\//i.test(parts[1]) ? parts[1] : "https://" + parts[1];
+      out[keyword] = { url, container: parts[2] || "" };
+    }
+    return out;
+  }
+  function serializeShortcuts(map) {
+    return Object.keys(map).sort().map(k => `${k} , ${map[k].url}${map[k].container ? " , " + map[k].container : ""}`).join("\n");
+  }
+  const api = { parseRules, matchUrl, containerNames, globToRegex, parseShortcuts, serializeShortcuts };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

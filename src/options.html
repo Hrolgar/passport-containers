@@ -10,6 +10,10 @@ button{padding:6px 14px}#status{margin-left:12px;color:#2a7}code{background:#eee
 <p>One rule per line, <code>pattern , Container</code>. Plain = host and path prefix. <code>@</code> = regex on the full URL (use this when two accounts share a path and differ only in the query). <code>!</code> = glob. <code>#</code> = comment. First match wins. Containers named here are created automatically on every machine signed in to this Firefox account. Use the container name <code>Default</code> to force the plain, uncontained profile.</p>
 <textarea id="rules" spellcheck="false" placeholder="mail.google.com/mail/u/0 , Personal&#10;github.com/acme-corp , Work&#10;@app\.example\.com/\?account=2 , Client A"></textarea>
 <p><button id="save">Save (syncs)</button><span id="status"></span></p>
+<h2>Keywords</h2>
+<p>One per line, <code>keyword , url , Container</code>. Type <code>go keyword</code> in the URL bar and the page opens in that container, on any machine signed in to this account. Unlike Firefox bookmark keywords these carry the container with them.</p>
+<textarea id="shortcuts" spellcheck="false" style="height:160px" placeholder="mail , https://mail.google.com/mail/u/0/ , Personal&#10;work , https://mail.google.com/mail/u/1/ , Work"></textarea>
+<p><button id="saveShortcuts">Save keywords (syncs)</button><span id="status2"></span></p>
 <h2>Containers</h2>
 <p>Colour and icon for containers Passport creates. Leave blank for automatic.</p>
 <table id="containers"><thead><tr><th>Name</th><th>Colour</th><th>Icon</th><th>Exists here</th></tr></thead><tbody></tbody></table>

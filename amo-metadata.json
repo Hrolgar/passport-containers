@@ -18,7 +18,7 @@
   "version": {
     "license": "MIT",
     "release_notes": {
-      "en-US": "First public release."
+      "en-US": "Popup now creates a bookmark in a folder of your choice and a synced Passport keyword (type \"go keyword\" in the URL bar) alongside the rule, so the whole flow is one place. Bookmarks permission added for that."
     }
   },
   "slug": "passport-containers"

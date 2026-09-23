@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Passport Containers",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Per-URL container rules that follow your Firefox account. Containers are recreated by name on every machine you sign in to.",
   "browser_specific_settings": {
     "gecko": {
@@ -21,6 +21,7 @@
     "storage",
     "webRequest",
     "webRequestBlocking",
+    "bookmarks",
     "<all_urls>"
   ],
   "background": {
@@ -42,5 +43,8 @@
     "48": "icons/passport.svg",
     "96": "icons/passport.svg"
   },
-  "homepage_url": "https://hrolgar.com"
+  "homepage_url": "https://hrolgar.com",
+  "omnibox": {
+    "keyword": "go"
+  }
 }

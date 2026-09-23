@@ -23,6 +23,15 @@ The most specific match wins (longest pattern), so `mail.google.com , Personal` 
 matches on a query string; use `@` for that. Container name `Default` forces the plain
 uncontained profile.
 
+## Keywords and bookmarks
+
+The popup can do the whole thing in one go: the rule, a bookmark in a folder you pick
+(default: a "Passport" folder in the bookmarks menu), and a Passport keyword. Keywords live
+in sync storage next to the rules. Type `go mail` in the URL bar and the page opens directly
+in its container. Firefox's own bookmark keywords cannot be set by an extension (there is no
+API for it), which is why Passport has its own; they also carry the container, which a
+bookmark keyword never could.
+
 ## How it routes
 
 A `webRequest` blocking listener on top-level navigations checks the URL. If the tab is

@@ -56,3 +56,15 @@ test("ignores non-http and garbage", () => {
   assert.equal(matchUrl("not a url", rules), null);
   assert.equal(matchUrl("https://x.example/", parseRules("@[unclosed , X")), null);
 });
+
+const { parseShortcuts, serializeShortcuts } = createRequire(import.meta.url)("../src/matcher.js");
+test("shortcuts parse, normalise and round-trip", () => {
+  const m = parseShortcuts("Mail , mail.google.com/mail/u/0/ , Personal\nwork , https://app.example.com , Work\n# c\nbad\n  , x , y\ndocs , docs.example.com");
+  assert.deepEqual(m, {
+    mail: { url: "https://mail.google.com/mail/u/0/", container: "Personal" },
+    work: { url: "https://app.example.com", container: "Work" },
+    docs: { url: "https://docs.example.com", container: "" },
+  });
+  assert.deepEqual(parseShortcuts(serializeShortcuts(m)), m);
+  assert.equal(serializeShortcuts({ b: { url: "https://b", container: "" }, a: { url: "https://a", container: "X" } }), "a , https://a , X\nb , https://b");
+});

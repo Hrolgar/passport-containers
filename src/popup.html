@@ -1,11 +1,19 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
-body{font:13px system-ui,sans-serif;margin:12px;width:320px}label{display:block;margin:8px 0 4px}
-input,select{width:100%;box-sizing:border-box;padding:4px}button{margin-top:10px;padding:6px 12px}#cur{color:#888}
-@media(prefers-color-scheme:dark){body{background:#1e1e1e;color:#ddd}input,select{background:#111;color:#ddd}}
+body{font:13px system-ui,sans-serif;margin:12px;width:340px}label{display:block;margin:8px 0 3px;color:#555}
+input,select{width:100%;box-sizing:border-box;padding:4px}button{margin-top:12px;padding:6px 14px}#cur{color:#888;margin-bottom:4px}
+fieldset{border:1px solid #ddd;border-radius:4px;margin-top:10px;padding:6px 10px 10px}legend{color:#555}#msg{margin-top:8px;color:#2a7}
+.hidden{display:none}small{color:#888}
+@media(prefers-color-scheme:dark){body{background:#1e1e1e;color:#ddd}input,select{background:#111;color:#ddd}label,legend{color:#aaa}fieldset{border-color:#444}}
 </style></head><body>
 <div id="cur"></div>
 <label>Always open</label><input id="pattern">
 <label>in container</label><select id="container"></select>
-<button id="add">Add rule</button> <a id="opt" href="#" style="margin-left:8px">All rules</a>
+<input id="newname" class="hidden" placeholder="New container name" style="margin-top:4px">
+<fieldset><legend><label style="display:inline"><input type="checkbox" id="bm" checked style="width:auto"> Also bookmark it</label></legend>
+  <label>Title</label><input id="title">
+  <label>Folder</label><select id="folder"></select>
+  <label>Passport keyword <small>(type <b>go keyword</b> in the URL bar, opens in the container above, syncs)</small></label><input id="keyword" placeholder="mail">
+</fieldset>
+<button id="add">Add</button> <a id="opt" href="#" style="margin-left:8px">All rules</a>
 <div id="msg"></div>
 <script src="popup.js"></script></body></html>

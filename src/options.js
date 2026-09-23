@@ -20,6 +20,7 @@ function renderContainers(existing) {
 async function init() {
   const s = await browser.runtime.sendMessage({ type: "get" });
   $("#rules").value = s.rulesText; meta = s.containerMeta || {};
+  $("#shortcuts").value = s.shortcutsText || "";
   renderContainers(s.containers);
   const st = await browser.storage.sync.get("updatedAt");
   if (st.updatedAt) $("#meta").textContent = "Last saved " + new Date(st.updatedAt).toLocaleString();
@@ -29,5 +30,10 @@ $("#save").onclick = async () => {
   const r = await browser.runtime.sendMessage({ type: "save", rulesText: $("#rules").value, containerMeta: meta });
   $("#status").textContent = r.ok ? `Saved ${r.count} rules, synced to your Firefox account.` : "Save failed";
   const s = await browser.runtime.sendMessage({ type: "get" }); renderContainers(s.containers);
+};
+$("#saveShortcuts").onclick = async () => {
+  const r = await browser.runtime.sendMessage({ type: "saveShortcuts", text: $("#shortcuts").value });
+  $("#status2").textContent = r.ok ? ` Saved ${r.count} keywords, synced.` : " Save failed";
+  const s = await browser.runtime.sendMessage({ type: "get" }); $("#shortcuts").value = s.shortcutsText; renderContainers(s.containers);
 };
 init();
