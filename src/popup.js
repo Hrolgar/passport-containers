@@ -23,7 +23,11 @@ async function passportFolderId() {
 }
 function sameSite(url) { try { return new URL(url).host === host; } catch { return false; } }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function dot(name) { const c = (state.containers || []).find(x => x.name.toLowerCase() === String(name || "").toLowerCase()); const d = el("span", "dot" + (c ? " " + c.color : "")); return d; }
+function dot(name) {
+  const c = (state.containers || []).find(x => x.name.toLowerCase() === String(name || "").toLowerCase());
+  if (!c) return el("span", "dot");
+  const e = el("span", "ci " + c.color); e.style.setProperty("--m", `url(icons/ci/${c.icon || "fingerprint"}.svg)`); e.style.marginRight = "5px"; return e;
+}
 function row(tag, parts, onRemove) {
   const r = el("div", "row"); r.append(el("span", "tag", tag));
   const b = el("span", "body"); for (const p of parts) b.append(typeof p === "string" ? document.createTextNode(p) : p); r.append(b);

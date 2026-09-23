@@ -130,14 +130,26 @@ function usage(name) {
   const k = Object.values(state.shortcuts).filter(x => (x.container || "").toLowerCase() === n).length;
   return { r, k, text: [r ? `${r} rule${r > 1 ? "s" : ""}` : "", k ? `${k} keyword${k > 1 ? "s" : ""}` : ""].filter(Boolean).join(", ") || "nothing" };
 }
+function ci(color, icon) { const e = el("span", "ci " + (color || "")); e.style.setProperty("--m", `url(icons/ci/${ICON_OPTS.includes(icon) ? icon : "fingerprint"}.svg)`); return e; }
+function swatchPicker(val, onChange) {
+  const box = el("div", "swatches"); box.value = val || "blue";
+  for (const c of COLOR_OPTS) { const b = el("button", c); b.type = "button"; b.title = c; b.onclick = () => { box.value = c; for (const x of box.children) x.classList.toggle("on", x === b); onChange && onChange(c); }; if (c === box.value) b.classList.add("on"); box.append(b); }
+  return box;
+}
+function iconPicker(val, color, onChange) {
+  const box = el("div", "iconpick"); box.value = ICON_OPTS.includes(val) ? val : "fingerprint";
+  for (const i of ICON_OPTS) { const b = el("button"); b.type = "button"; b.title = i; b.append(ci(color, i)); b.onclick = () => { box.value = i; for (const x of box.children) x.classList.toggle("on", x === b); onChange && onChange(i); }; if (i === box.value) b.classList.add("on"); box.append(b); }
+  box.recolor = c => { for (const x of box.children) x.firstChild.className = "ci " + c; };
+  return box;
+}
 function contRow(c) {
   // c: {name, color, icon, cookieStoreId?}  (cookieStoreId missing = not on this machine yet)
   const tr = el("tr"); tr.dataset.store = c.cookieStoreId || ""; tr.dataset.orig = c.name;
-  const d = el("span", "dot " + (c.color || ""));
+  const color = c.color || "blue", icon = ICON_OPTS.includes(c.icon) ? c.icon : "fingerprint";
+  const d = ci(color, icon);
   const name = input(c.name, "Name");
-  const cs = select(COLOR_OPTS.map(x => ({ value: x, label: x })), c.color || "blue");
-  const is = select(ICON_OPTS.map(x => ({ value: x, label: x })), c.icon || "fingerprint");
-  cs.onchange = () => { d.className = "dot " + cs.value; };
+  const is = iconPicker(icon, color, i => { d.style.setProperty("--m", `url(icons/ci/${i}.svg)`); });
+  const cs = swatchPicker(color, col => { d.className = "ci " + col; is.recolor(col); });
   const u = usage(c.name);
   const x = el("button", "ghost", "\u2715"); x.title = "Delete container from Firefox (only when nothing uses it)";
   x.onclick = async () => {
@@ -166,7 +178,7 @@ async function saveContainers() {
   try {
     for (const tr of $("#containers").children) {
       const name = tr.children[1].querySelector("input").value.trim();
-      const color = tr.children[2].querySelector("select").value, icon = tr.children[3].querySelector("select").value;
+      const color = tr.children[2].firstChild.value, icon = tr.children[3].firstChild.value;
       if (!name) continue;
       state.containerMeta[name] = { color, icon };
       if (tr.dataset.store) {
@@ -252,7 +264,19 @@ $("#addkw").onclick = () => { $("#keywords").append(kwRow()); $("#keywords").las
 $("#savekw").onclick = () => saveKeywords(readKeywords(), "#msg-kw");
 $("#savebm").onclick = saveBookmarks;
 $("#savecont").onclick = saveContainers;
-$("#addcont").onclick = () => { $("#containers").append(contRow({ name: "", color: "blue", icon: "fingerprint" })); $("#containers").lastChild.children[1].querySelector("input").focus(); };
+const newColor = swatchPicker("blue", c => newIcon.recolor(c)), newIcon = iconPicker("fingerprint", "blue");
+$("#newcolor").append(newColor); $("#newicon").append(newIcon);
+$("#addcont").onclick = async () => {
+  const name = $("#newcont").value.trim(); $("#err-cont").textContent = "";
+  if (!name) { $("#err-cont").textContent = "Give the container a name."; return; }
+  if (state.containers.some(c => c.name.toLowerCase() === name.toLowerCase())) { $("#err-cont").textContent = `${name} already exists.`; return; }
+  try {
+    await browser.contextualIdentities.create({ name, color: newColor.value, icon: newIcon.value });
+    state.containerMeta[name] = { color: newColor.value, icon: newIcon.value };
+    await browser.runtime.sendMessage({ type: "save", rulesText: state.rulesText, containerMeta: state.containerMeta });
+    $("#newcont").value = ""; $("#msg-cont").textContent = `Created ${name}.`; await load();
+  } catch (e) { $("#err-cont").textContent = "Firefox refused: " + e.message; }
+};
 $("#saveraw").onclick = async () => { await saveRules($("#rawrules").value, "#msg-raw"); await saveKeywords($("#rawkw").value, "#msg-raw"); $("#msg-raw").textContent = "Saved. Synced."; };
 $("#rfilter").oninput = () => filterRows($("#rules"), $("#rfilter").value);
 $("#kfilter").oninput = () => filterRows($("#keywords"), $("#kfilter").value);

@@ -53,8 +53,17 @@ td.narrow{width:120px}td.act{width:36px;text-align:right}td.dotcell{width:24px}t
 </section>
 <section id="tab-containers">
   <h1>Containers</h1><p class="lead">All containers on this machine plus any named in a rule or keyword. Save applies name, colour and icon to Firefox directly; a rename also updates every rule, keyword and bookmark hint that used the old name. Colour and icon travel to other machines through sync.</p>
-  <table><thead><tr><th class="dotcell"></th><th>Name</th><th class="narrow">Colour</th><th class="narrow">Icon</th><th>Used by</th><th>On this machine</th><th></th></tr></thead><tbody id="containers"></tbody></table>
-  <div class="actions"><button id="addcont">Add container</button><button class="primary" id="savecont">Save</button><span class="msg" id="msg-cont"></span><span class="err" id="err-cont"></span></div>
+  <div class="card" style="margin-bottom:14px">
+    <h2 style="margin-top:0">New container</h2>
+    <div class="split" style="align-items:flex-end">
+      <div class="field" style="margin-top:0;flex:1.2"><label>Name</label><input id="newcont" placeholder="Client B"></div>
+      <div class="field" style="margin-top:0"><label>Colour</label><div class="swatches" id="newcolor"></div></div>
+      <div class="field" style="margin-top:0;flex:2"><label>Icon</label><div class="iconpick" id="newicon"></div></div>
+      <div class="field" style="margin-top:0;flex:0"><button class="primary" id="addcont">Create</button></div>
+    </div>
+  </div>
+  <table><thead><tr><th class="dotcell"></th><th>Name</th><th>Colour</th><th>Icon</th><th>Used by</th><th>On this machine</th><th></th></tr></thead><tbody id="containers"></tbody></table>
+  <div class="actions"><button class="primary" id="savecont">Save changes</button><span class="msg" id="msg-cont"></span><span class="err" id="err-cont"></span></div>
 </section>
 <section id="tab-advanced">
   <h1>Advanced</h1><p class="lead">The raw text behind the tables. Rules use the Containerise format, so a Containerise export pastes straight in. Comments (<code>#</code>) survive here but not the table editor.</p>
