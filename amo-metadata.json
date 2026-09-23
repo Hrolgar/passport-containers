@@ -18,7 +18,7 @@
   "version": {
     "license": "MIT",
     "release_notes": {
-      "en-US": "Popup now creates a bookmark in a folder of your choice and a synced Passport keyword (type \"go keyword\" in the URL bar) alongside the rule, so the whole flow is one place. Bookmarks permission added for that."
+      "en-US": "Keyword arguments (%s), reopen a tab in another container, pause switch, Problems view, JSON backup and restore, keyboard shortcuts, Containers tab with swatches and icons, Sites overview, Bookmarks editor with bulk actions."
     }
   },
   "slug": "passport-containers"
