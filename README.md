@@ -37,6 +37,16 @@ Google, Bing, DuckDuckGo, Startpage, Ecosia, Brave, Qwant, Yahoo, Yandex and Kag
 default engine. `go mail` works as well. Passport keywords also carry the container, which a
 bookmark keyword never could.
 
+## Real Firefox keywords (Mozilla account)
+
+Firefox has no API for bookmark keywords, and its account API only talks to Mozilla's own login
+page. Passport therefore goes through Firefox Sync: sign in on accounts.firefox.com (Settings,
+Mozilla account) with the standard OAuth flow (PKCE, `keys_jwk` scoped key), and Passport can
+read and write your bookmark records. A keyword typed in the popup is written into the
+bookmark's record and Firefox applies it as a native keyword on the next sync, which Passport
+triggers within seconds by editing a helper bookmark named "Passport sync". Your password never
+touches Passport; the Sync key stays in local extension storage. Everything is in `src/sync/`.
+
 ## Keyword arguments
 
 Put `%s` in a keyword's URL and whatever you type after the keyword fills it in:
