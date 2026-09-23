@@ -111,3 +111,13 @@ test("matchRule returns the winning rule and removeRule drops it by pattern", ()
   assert.equal(removeRule(t, "https://a.example"), "@b\\.example/\\?x , Personal\nc.example/p , Work\n");
   assert.equal(removeRule("a.example , Work\n", "a.example"), "");
 });
+
+const { nearestColor } = createRequire(import.meta.url)("../src/matcher.js");
+test("nearestColor maps any hex to Firefox's palette", () => {
+  assert.equal(nearestColor("#ff0000"), "red");
+  assert.equal(nearestColor("#1e90ff"), "blue");
+  assert.equal(nearestColor("#8a2be2"), "purple");
+  assert.equal(nearestColor("#00ff7f"), "turquoise");
+  assert.equal(nearestColor("#ffd700"), "yellow");
+  assert.equal(nearestColor("not a colour"), null);
+});
