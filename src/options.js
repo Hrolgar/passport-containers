@@ -63,8 +63,35 @@ function renderContainers() {
     tr.firstChild.className = "dotcell"; tb.append(tr);
   }
 }
+function hostOf(url) { try { return new URL(url).host; } catch { return url; } }
+function hostOfPattern(r) { if (r.type === "plain") return r.pattern.split("/")[0]; const m = r.pattern.replace(/\\\./g, ".").match(/[a-z0-9-]+(\.[a-z0-9-]+)+/i); return m ? m[0].replace(/^\*\./, "") : r.pattern; }
+async function renderSites() {
+  const box = $("#sites"); box.innerHTML = "";
+  const sites = new Map();
+  const add = (host, kind, node) => { if (!sites.has(host)) sites.set(host, []); sites.get(host).push([kind, node]); };
+  for (const r of parseRules(state.rulesText)) add(hostOfPattern(r), "rule", [`${r.type === "plain" ? "" : r.type + " "}${r.pattern}  \u2192  `, r.container]);
+  for (const [k, v] of Object.entries(state.shortcuts)) add(hostOf(v.url), "keyword", [k + "  \u2192  ", v.container || "default", `   ${v.url}`]);
+  try {
+    const all = await browser.bookmarks.search({});
+    for (const b of all) { if (!b.url) continue; let h; try { h = new URL(b.url).searchParams.get("passport"); } catch {} if (h) add(hostOf(b.url), "bookmark", [`${b.title}  \u2192  `, h]); }
+  } catch {}
+  if (!sites.size) { box.append(el("p", "muted", "Nothing yet. Add keywords and rules from the toolbar popup on any site.")); return; }
+  for (const host of [...sites.keys()].sort()) {
+    const card = el("div", "card"); card.style.marginBottom = "10px";
+    card.append(el("h2", null, host)); card.firstChild.style.marginTop = "0";
+    for (const [kind, parts] of sites.get(host)) {
+      const r = el("div", "row"); r.append(el("span", "tag", kind));
+      const b = el("span", "body");
+      parts.forEach((p, i) => { if (i === 1) { const c = state.containers.find(x => x.name.toLowerCase() === String(p).toLowerCase()); b.append(el("span", "dot " + (c ? c.color : ""))); } b.append(document.createTextNode(p)); });
+      r.append(b); card.append(r);
+    }
+    box.append(card);
+  }
+}
 function renderAll() {
-  const rb = $("#rules"); rb.innerHTML = ""; for (const r of parseRules(state.rulesText)) rb.append(ruleRow(r));
+  const rb = $("#rules"); rb.innerHTML = ""; const rs = parseRules(state.rulesText); for (const r of rs) rb.append(ruleRow(r));
+  $("#rules-empty").classList.toggle("hidden", rs.length > 0);
+  renderSites();
   const kb = $("#keywords"); kb.innerHTML = ""; for (const [k, v] of Object.entries(state.shortcuts).sort()) kb.append(kwRow(k, v));
   $("#rawrules").value = state.rulesText; $("#rawkw").value = serializeShortcuts(state.shortcuts);
   renderContainers(); refreshDatalist();
@@ -93,6 +120,6 @@ $("#savekw").onclick = () => saveKeywords(readKeywords(), "#msg-kw");
 $("#savecont").onclick = () => saveRules(state.rulesText, "#msg-cont");
 $("#saveraw").onclick = async () => { await saveRules($("#rawrules").value, "#msg-raw"); await saveKeywords($("#rawkw").value, "#msg-raw"); $("#msg-raw").textContent = "Saved. Synced."; };
 for (const a of document.querySelectorAll("nav a")) a.onclick = e => { e.preventDefault(); location.hash = a.dataset.tab; show(a.dataset.tab); };
-window.addEventListener("hashchange", () => show(location.hash.slice(1) || "rules"));
-show(location.hash.slice(1) || "rules");
+window.addEventListener("hashchange", () => show(location.hash.slice(1) || "sites"));
+show(location.hash.slice(1) || "sites");
 load();
