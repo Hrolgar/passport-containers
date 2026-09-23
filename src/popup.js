@@ -1,64 +1,108 @@
 const $ = s => document.querySelector(s);
 const MENU = "menu________";
+let tab, state, folders, host = "", path = "";
+
 async function folderList() {
   const [root] = await browser.bookmarks.getTree();
   const out = [];
   (function walk(node, depth) {
     for (const c of node.children || []) {
-      if (c.type === "folder" || (!c.url && c.children)) {
-        if (c.id !== "root________") out.push({ id: c.id, title: "  ".repeat(depth) + (c.title || c.id) });
+      if (!c.url) {
+        if (c.id !== "root________") out.push({ id: c.id, title: "  ".repeat(depth) + (c.title || c.id), plain: c.title || c.id });
         walk(c, c.id === "root________" ? depth : depth + 1);
       }
     }
   })(root, 0);
   return out;
 }
-async function passportFolderId(folders) {
-  const hit = folders.find(f => f.title.trim() === "Passport");
+async function passportFolderId() {
+  const hit = folders.find(f => f.plain === "Passport");
   if (hit) return hit.id;
   const f = await browser.bookmarks.create({ parentId: MENU, title: "Passport" });
   return f.id;
 }
-(async () => {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  const s = await browser.runtime.sendMessage({ type: "get" });
-  let host = "", path = "";
-  try { const u = new URL(tab.url); host = u.host; path = u.pathname.replace(/\/$/, ""); } catch {}
-  $("#pattern").value = host + path;
-  $("#title").value = tab.title || host;
+function sameSite(url) { try { return new URL(url).host === host; } catch { return false; } }
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+async function renderHave() {
+  state = await browser.runtime.sendMessage({ type: "get" });
+  const box = $("#have"); box.innerHTML = "";
   const m = await browser.runtime.sendMessage({ type: "match", url: tab.url });
-  const cur = s.containers.find(c => c.cookieStoreId === tab.cookieStoreId);
-  $("#cur").textContent = `This tab: ${cur ? cur.name : "no container"}` + (m.container ? ` (rule says ${m.container})` : " (no rule)");
-  if (m.container) { $("#rule").checked = false; $("#rulenote").textContent = `A rule already sends this to ${m.container}; tick to replace it.`; }
-  const sel = $("#container");
-  for (const c of s.containers) { const o = document.createElement("option"); o.value = c.name; o.textContent = c.name; if (cur && cur.name === c.name) o.selected = true; sel.append(o); }
-  const o = document.createElement("option"); o.value = "__new"; o.textContent = "New container..."; sel.append(o);
-  sel.onchange = () => $("#newname").classList.toggle("hidden", sel.value !== "__new");
-  const folders = await folderList();
-  const fsel = $("#folder");
-  for (const f of folders) { const op = document.createElement("option"); op.value = f.id; op.textContent = f.title; fsel.append(op); }
-  const last = (await browser.storage.local.get("lastFolder")).lastFolder;
-  const pf = folders.find(f => f.title.trim() === "Passport");
-  fsel.value = last && folders.some(f => f.id === last) ? last : (pf ? pf.id : MENU);
-  $("#bm").onchange = () => { for (const id of ["title", "folder", "keyword"]) $("#" + id).disabled = !$("#bm").checked; };
+  const cur = state.containers.find(c => c.cookieStoreId === tab.cookieStoreId);
+  $("#cur").textContent = `This tab is in ${cur ? cur.name : "no container"}. ${m.container ? `A rule sends ${host} to ${m.container}.` : "No rule for this site."}`;
+  const kws = Object.entries(state.shortcuts || {}).filter(([, v]) => sameSite(v.url));
+  for (const [k, v] of kws) {
+    const r = el("div", "row"); r.append(el("span", "k", k), el("span", "c", `${v.container || "default"}  ${v.url.replace(/^https?:\/\//, "")}`));
+    const del = el("button", null, "remove"); del.onclick = async () => { await browser.runtime.sendMessage({ type: "deleteShortcut", keyword: k }); renderHave(); };
+    r.append(del); box.append(r);
+  }
+  const bms = (await browser.bookmarks.search({})).filter(b => b.url && sameSite(b.url));
+  for (const b of bms) {
+    const f = folders.find(x => x.id === b.parentId);
+    const hint = (() => { try { return new URL(b.url).searchParams.get("passport"); } catch { return null; } })();
+    const r = el("div", "row"); r.append(el("span", "k", "bookmark"), el("span", "c", `${b.title}  in ${f ? f.plain : b.parentId}${hint ? `  opens in ${hint}` : ""}`));
+    const del = el("button", null, "remove"); del.onclick = async () => { await browser.bookmarks.remove(b.id); renderHave(); };
+    r.append(del); box.append(r);
+  }
+  if (!kws.length && !bms.length) box.append(el("small", null, "nothing yet"));
+}
+
+(async () => {
+  try {
+    [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    try { const u = new URL(tab.url); host = u.host; path = u.pathname.replace(/\/$/, ""); } catch {}
+    folders = await folderList();
+    state = await browser.runtime.sendMessage({ type: "get" });
+    const cur = state.containers.find(c => c.cookieStoreId === tab.cookieStoreId);
+    const sel = $("#container");
+    for (const c of state.containers) { const o = el("option", null, c.name); o.value = c.name; if (cur && cur.name === c.name) o.selected = true; sel.append(o); }
+    const o = el("option", null, "New container..."); o.value = "__new"; sel.append(o);
+    sel.onchange = () => $("#newname").classList.toggle("hidden", sel.value !== "__new");
+    $("#title").value = tab.title || host;
+    $("#pattern").value = host + path; $("#patlabel").textContent = host + path;
+    $("#editpat").onclick = e => { e.preventDefault(); $("#pattern").classList.remove("hidden"); };
+    $("#pattern").oninput = () => { $("#patlabel").textContent = $("#pattern").value; };
+    const fsel = $("#folder");
+    for (const f of folders) { const op = el("option", null, f.title); op.value = f.id; fsel.append(op); }
+    const last = (await browser.storage.local.get("lastFolder")).lastFolder;
+    const pf = folders.find(f => f.plain === "Passport");
+    fsel.value = last && folders.some(f => f.id === last) ? last : (pf ? pf.id : MENU);
+    $("#bm").onchange = () => $("#bmbox").classList.toggle("hidden", !$("#bm").checked);
+    await renderHave();
+    $("#keyword").focus();
+  } catch (e) { $("#err").textContent = "Popup failed to load: " + e.message; }
+
   $("#add").onclick = async () => {
-    let name = sel.value;
-    if (name === "__new") { name = $("#newname").value.trim(); if (!name) { $("#msg").textContent = "Give the new container a name."; return; } }
-    const pattern = $("#pattern").value.trim();
-    const done = [];
-    if ($("#rule").checked && pattern) { await browser.runtime.sendMessage({ type: "setRule", pattern, container: name }); done.push(`rule ${pattern} -> ${name}`); }
-    if ($("#bm").checked) {
-      let parentId = fsel.value || await passportFolderId(folders);
-      let url = tab.url;
-      if ($("#hint").checked) { const u = new URL(url); u.searchParams.set("passport", name); url = u.toString(); }
-      const dupes = (await browser.bookmarks.search({ url })).filter(b => b.parentId === parentId);
-      if (dupes.length) done.push("bookmark already there");
-      else { await browser.bookmarks.create({ parentId, title: $("#title").value.trim() || host, url }); done.push("bookmark"); }
-      await browser.storage.local.set({ lastFolder: parentId });
+    $("#msg").textContent = ""; $("#err").textContent = "";
+    try {
+      const sel = $("#container");
+      let name = sel.value;
+      if (name === "__new") { name = $("#newname").value.trim(); if (!name) throw new Error("Give the new container a name."); }
       const kw = $("#keyword").value.trim().toLowerCase().split(/\s+/)[0];
-      if (kw) { await browser.runtime.sendMessage({ type: "addShortcut", keyword: kw, url: tab.url, container: name }); done.push(`keyword "go ${kw}"`); }
-    }
-    $("#msg").textContent = done.length ? "Added " + done.join(", ") + ". Synced." : "Nothing to add.";
+      const done = [];
+      if (kw) {
+        const existed = !!(state.shortcuts || {})[kw];
+        await browser.runtime.sendMessage({ type: "addShortcut", keyword: kw, url: tab.url, container: name });
+        done.push(`${existed ? "updated" : "added"} keyword ${kw} -> ${name}`);
+      }
+      if ($("#bm").checked) {
+        const parentId = $("#folder").value || await passportFolderId();
+        let url = tab.url;
+        if ($("#hint").checked) { const u = new URL(url); u.searchParams.set("passport", name); url = u.toString(); }
+        const dupes = (await browser.bookmarks.search({ url })).filter(b => b.parentId === parentId);
+        if (dupes.length) done.push("bookmark was already there");
+        else { await browser.bookmarks.create({ parentId, title: $("#title").value.trim() || host, url }); done.push("bookmark added"); }
+        await browser.storage.local.set({ lastFolder: parentId });
+      }
+      if ($("#rule").checked) {
+        const pattern = $("#pattern").value.trim();
+        if (pattern) { await browser.runtime.sendMessage({ type: "setRule", pattern, container: name }); done.push(`rule ${pattern} -> ${name}`); }
+      }
+      if (!done.length) throw new Error("Nothing selected: give a keyword, tick bookmark, or tick rule.");
+      $("#msg").textContent = done.join(", ") + ". Synced.";
+      $("#keyword").value = "";
+      await renderHave();
+    } catch (e) { $("#err").textContent = e.message; }
   };
   $("#opt").onclick = e => { e.preventDefault(); browser.runtime.openOptionsPage(); };
 })();

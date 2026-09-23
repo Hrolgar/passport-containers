@@ -1,22 +1,32 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
-body{font:13px system-ui,sans-serif;margin:12px;width:340px}label{display:block;margin:8px 0 3px;color:#555}
-input,select{width:100%;box-sizing:border-box;padding:4px}button{margin-top:12px;padding:6px 14px}#cur{color:#888;margin-bottom:4px}
-fieldset{border:1px solid #ddd;border-radius:4px;margin-top:10px;padding:6px 10px 10px}legend{color:#555}#msg{margin-top:8px;color:#2a7}
-.hidden{display:none}small{color:#888}
-@media(prefers-color-scheme:dark){body{background:#1e1e1e;color:#ddd}input,select{background:#111;color:#ddd}label,legend{color:#aaa}fieldset{border-color:#444}}
+body{font:13px system-ui,sans-serif;margin:12px;width:360px;color:#222}
+h3{margin:10px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#777}
+label{display:block;margin:8px 0 3px;color:#555}input,select{width:100%;box-sizing:border-box;padding:4px}
+button{padding:5px 12px}#add{margin-top:12px}#cur{color:#666}
+fieldset{border:1px solid #ddd;border-radius:4px;margin-top:8px;padding:6px 10px 10px}legend{color:#555}
+#msg{margin-top:8px;color:#2a7}#err{margin-top:8px;color:#c33}.hidden{display:none}small{color:#888}
+.row{display:flex;align-items:center;gap:6px;margin:3px 0}.row .k{font-family:ui-monospace,monospace;font-weight:600}
+.row .c{flex:1;color:#555}.row button{padding:1px 7px;font-size:12px}
+.chk{display:flex;align-items:center;gap:6px;margin-top:6px;color:#333}.chk input{width:auto}
+@media(prefers-color-scheme:dark){body{background:#1e1e1e;color:#ddd}input,select{background:#111;color:#ddd;border:1px solid #444}label,legend,.chk,.row .c{color:#aaa}fieldset{border-color:#444}}
 </style></head><body>
 <div id="cur"></div>
-<label>Container</label><select id="container"></select>
+<h3>This site</h3>
+<div id="have"><small>nothing yet</small></div>
+
+<h3>Add</h3>
+<label>Keyword <small>(type it alone in the URL bar)</small></label><input id="keyword" placeholder="e.g. pdb">
+<label>opens in container</label><select id="container"></select>
 <input id="newname" class="hidden" placeholder="New container name" style="margin-top:4px">
-<fieldset><legend><label style="display:inline"><input type="checkbox" id="rule" checked style="width:auto"> Rule: always open this pattern there</label></legend>
-  <input id="pattern"><small id="rulenote"></small>
-</fieldset>
-<fieldset><legend><label style="display:inline"><input type="checkbox" id="bm" checked style="width:auto"> Also bookmark it</label></legend>
+<div class="chk"><input type="checkbox" id="bm" checked><label for="bm" style="margin:0">Bookmark it</label></div>
+<fieldset id="bmbox">
   <label>Title</label><input id="title">
   <label>Folder</label><select id="folder"></select>
-  <label style="margin-top:6px"><input type="checkbox" id="hint" style="width:auto"> Bookmark opens in this container <small>(adds ?passport=Name to its URL, stripped on open)</small></label>
-  <label>Keyword <small>(type it alone in the URL bar, like a bookmark keyword; opens in the container above; syncs)</small></label><input id="keyword" placeholder="mail">
+  <div class="chk"><input type="checkbox" id="hint"><label for="hint" style="margin:0">Bookmark opens in this container <small>(?passport=Name in its URL)</small></label></div>
 </fieldset>
-<button id="add">Add</button> <a id="opt" href="#" style="margin-left:8px">All rules</a>
-<div id="msg"></div>
+<div class="chk"><input type="checkbox" id="rule"><label for="rule" style="margin:0">Rule: always open <span id="patlabel"></span> there</label></div>
+<input id="pattern" class="hidden">
+<div style="margin-top:4px"><a href="#" id="editpat"><small>edit pattern</small></a></div>
+<button id="add">Add</button> <a id="opt" href="#" style="margin-left:8px">All rules and keywords</a>
+<div id="msg"></div><div id="err"></div>
 <script src="popup.js"></script></body></html>

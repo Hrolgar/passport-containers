@@ -131,6 +131,10 @@ browser.runtime.onMessage.addListener(async msg => {
     const map = { ...s.shortcuts, [String(msg.keyword).toLowerCase().split(/\s+/)[0]]: { url: msg.url, container: msg.container || "" } };
     await writeShortcuts(map); await reload(); return { ok: true };
   }
+  if (msg.type === "deleteShortcut") {
+    const s = await readSync(); const map = { ...s.shortcuts }; delete map[String(msg.keyword).toLowerCase()];
+    await writeShortcuts(map); await reload(); return { ok: true };
+  }
   if (msg.type === "saveShortcuts") { await writeShortcuts(parseShortcuts(msg.text)); await reload(); return { ok: true, count: Object.keys(shortcuts).length }; }
   if (msg.type === "setRule") {
     const s = await readSync();
