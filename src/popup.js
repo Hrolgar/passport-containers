@@ -67,7 +67,12 @@ async function renderHave() {
 
 (async () => {
   try {
-    [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    const inWindow = new URLSearchParams(location.search).get("window") === "1";
+    if (inWindow) document.body.classList.add("window");
+    // In window mode the active tab is the one in the last focused normal window, not this popup window
+    if (inWindow) { const wins = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] }); const w = wins.find(x => x.focused) || wins.sort((a, b) => (b.id || 0) - (a.id || 0))[0]; [tab] = w ? w.tabs.filter(t => t.active) : []; }
+    else [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (!tab) throw new Error("No active tab found.");
     try { const u = new URL(tab.url); host = u.host; path = u.pathname.replace(/\/$/, ""); } catch {}
     folders = await folderList();
     state = await browser.runtime.sendMessage({ type: "get" });

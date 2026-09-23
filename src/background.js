@@ -210,6 +210,20 @@ browser.runtime.onMessage.addListener(async msg => {
   }
 });
 
+// Optional: open the popup as a small window instead of a panel (Firefox panels on some Wayland desktops
+// never get keyboard focus until clicked).
+async function applyPopupMode() {
+  const { popupWindow } = await browser.storage.local.get("popupWindow");
+  await browser.browserAction.setPopup({ popup: popupWindow ? "" : "popup.html" });
+}
+browser.browserAction.onClicked.addListener(async () => {
+  const w = await browser.windows.getCurrent();
+  const width = 400, height = 680;
+  await browser.windows.create({ url: browser.runtime.getURL("popup.html?window=1"), type: "popup", width, height, left: Math.max(0, (w.left || 0) + (w.width || width) - width - 20), top: (w.top || 0) + 80 });
+});
+browser.storage.onChanged.addListener((changes, area) => { if (area === "local" && changes.popupWindow) applyPopupMode(); });
+applyPopupMode();
+
 // Right-click on the toolbar icon: straight to a settings tab
 const MENU_TABS = [["sites", "Sites"], ["rules", "Rules"], ["keywords", "Keywords"], ["bookmarks", "Bookmarks"], ["containers", "Containers"], ["advanced", "Advanced (raw text, backup)"]];
 for (const [id, title] of MENU_TABS) browser.menus.create({ id: "passport-" + id, title, contexts: ["browser_action"] });

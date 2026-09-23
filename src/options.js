@@ -302,6 +302,8 @@ $("#saverules").onclick = () => saveRules(serializeRules(readRules()), "#msg-rul
 $("#addkw").onclick = () => { $("#keywords").append(kwRow()); $("#keywords").lastChild.children[1].querySelector("input").focus(); };
 $("#savekw").onclick = () => saveKeywords(readKeywords(), "#msg-kw");
 $("#savebm").onclick = saveBookmarks;
+browser.storage.local.get("popupWindow").then(v => { $("#popupWindow").checked = !!v.popupWindow; });
+$("#popupWindow").onchange = () => browser.storage.local.set({ popupWindow: $("#popupWindow").checked });
 $("#export").onclick = () => download(`passport-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: "passport-containers", version: 1, exported: new Date().toISOString(), rulesText: state.rulesText, shortcuts: state.shortcuts, containerMeta: state.containerMeta }, null, 2));
 $("#importmerge").onclick = () => restore("merge"); $("#importreplace").onclick = () => restore("replace");
 $("#savecont").onclick = saveContainers;
