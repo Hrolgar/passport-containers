@@ -47,7 +47,7 @@ extra words and lets the search happen, so `pdb news` is still a search.
 The popup has a "Reopen in" row that moves the current tab into another container, and a
 pause switch that stops all routing until you resume it (also in the toolbar icon's
 right-click menu, with an "II" badge while paused). Keys: Ctrl+Alt+P opens the popup,
-Alt+Shift+Right / Left reopen the tab in the next or previous container. Rebind them in
+Ctrl+Alt+Right / Left reopen the tab in the next or previous container. Rebind them in
 about:addons, gear menu, Manage Extension Shortcuts.
 
 ## Problems, backup

@@ -58,13 +58,13 @@
     },
     "reopen-next-container": {
       "suggested_key": {
-        "default": "Alt+Shift+Right"
+        "default": "Ctrl+Alt+Right"
       },
       "description": "Reopen this tab in the next container"
     },
     "reopen-prev-container": {
       "suggested_key": {
-        "default": "Alt+Shift+Left"
+        "default": "Ctrl+Alt+Left"
       },
       "description": "Reopen this tab in the previous container"
     },
