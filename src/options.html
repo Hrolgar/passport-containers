@@ -68,18 +68,14 @@ td.narrow{width:120px}td.act{width:36px;text-align:right}td.dotcell{width:24px}t
 </section>
 <section id="tab-account">
   <h1>Mozilla account</h1>
-  <p class="lead">Firefox does not let extensions set bookmark keywords. Connect your Mozilla account and Passport writes keywords through Firefox Sync instead: they become real Firefox keywords, with the top suggestion in the address bar, on every device signed in to the account. Your password is used once to derive the keys and is never stored. Passport keeps the Sync keys on this machine only.</p>
-  <div class="card" id="acc-connected" class="hidden" style="display:none">
-    <div>Connected as <b id="acc-email"></b> <small id="acc-since"></small></div>
+  <p class="lead">Firefox does not let extensions set bookmark keywords. Sign in with your Mozilla account and Passport writes keywords through Firefox Sync instead: they become real Firefox keywords, with the top suggestion in the address bar, on every device signed in to the account.</p>
+  <p class="lead">You sign in on Mozilla's own page. Passport never sees your password; it receives a one-time code and a Sync key encrypted to a key pair it generated. Everything stays on this machine. The consent screen names the Mozilla app whose public client Passport uses.</p>
+  <div class="card" id="acc-connected" style="display:none">
+    <div>Connected <small id="acc-since"></small></div>
     <div class="actions"><button id="acc-disconnect">Disconnect</button></div>
   </div>
   <div class="card" id="acc-form">
-    <div class="split">
-      <div class="field" style="margin-top:0"><label>Email</label><input id="acc-mail" type="email" autocomplete="username"></div>
-      <div class="field" style="margin-top:0"><label>Password</label><input id="acc-pass" type="password" autocomplete="current-password"></div>
-    </div>
-    <div class="field hidden" id="acc-codebox"><label id="acc-codelabel">Code</label><input id="acc-code" inputmode="numeric" autocomplete="one-time-code" style="max-width:200px"></div>
-    <div class="actions"><button class="primary" id="acc-connect">Connect</button><span class="msg" id="acc-msg"></span><span class="err" id="acc-err"></span></div>
+    <div class="actions" style="margin-top:0"><button class="primary" id="acc-connect">Sign in with Mozilla account</button><span class="msg" id="acc-msg"></span><span class="err" id="acc-err"></span></div>
   </div>
 </section>
 <section id="tab-advanced">
