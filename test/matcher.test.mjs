@@ -75,7 +75,7 @@ test("recognises default-engine search requests and extracts the typed text", ()
   assert.equal(searchQuery("https://www.google.no/search?q=pvg&ie=utf-8"), "pvg");
   assert.equal(searchQuery("https://duckduckgo.com/?q=pvg&t=ffab"), "pvg");
   assert.equal(searchQuery("https://www.bing.com/search?q=two+words"), "two words");
-  assert.equal(searchQuery("https://www.startpage.com/do/search?query=pvg"), null); // not the /?query form
+  assert.equal(searchQuery("https://www.startpage.com/do/search?query=pvg"), "pvg");
   assert.equal(searchQuery("https://www.google.com/maps?q=pvg"), null);
   assert.equal(searchQuery("https://example.com/search?q=pvg"), null);
 });
