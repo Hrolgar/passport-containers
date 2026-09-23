@@ -109,6 +109,56 @@
     return { id: json.id, key: te.encode(json.key), endpoint: json.api_endpoint, expiresAt: Date.now() + json.duration * 1000 };
   }
 
+  // ---------- OAuth authorization-code flow with scoped keys (login happens on accounts.firefox.com)
+  const OAUTH = "https://oauth.accounts.firefox.com/v1";
+  const AUTHORIZE = "https://accounts.firefox.com/authorization";
+  const REDIRECT_PREFIX = "https://lockbox.firefox.com/fxa/android-redirect.html";
+  async function beginAuthorization() {
+    const kp = await subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+    const pubJwk = await subtle.exportKey("jwk", kp.publicKey); const privJwk = await subtle.exportKey("jwk", kp.privateKey);
+    const verifier = b64url(rand(32)); const challenge = b64url(await sha256(te.encode(verifier))); const state = b64url(rand(16));
+    const keysJwk = b64url(te.encode(JSON.stringify({ kty: "EC", crv: "P-256", x: pubJwk.x, y: pubJwk.y })));
+    const q = new URLSearchParams({ client_id: CLIENT_ID, scope: SCOPE, state, code_challenge_method: "S256", code_challenge: challenge, access_type: "offline", keys_jwk: keysJwk });
+    return { url: `${AUTHORIZE}?${q}`, verifier, state, privJwk };
+  }
+  function parseRedirect(url, state) {
+    if (!url.startsWith(REDIRECT_PREFIX)) return null;
+    const u = new URL(url); const code = u.searchParams.get("code"), st = u.searchParams.get("state");
+    if (!code) return { error: u.searchParams.get("error") || "no code in redirect" };
+    if (st !== state) return { error: "state mismatch" };
+    return { code };
+  }
+  async function exchangeCode(code, verifier) {
+    const { json } = await http("POST", OAUTH + "/token", { body: { client_id: CLIENT_ID, grant_type: "authorization_code", code, code_verifier: verifier } });
+    return json; // access_token, refresh_token, expires_in, keys_jwe, scope
+  }
+  async function refreshAccessToken(refreshToken) {
+    const { json } = await http("POST", OAUTH + "/token", { body: { client_id: CLIENT_ID, grant_type: "refresh_token", refresh_token: refreshToken, scope: SCOPE } });
+    return json;
+  }
+  async function destroyToken(refreshToken) { try { await http("POST", OAUTH + "/destroy", { body: { refresh_token: refreshToken } }); } catch {} }
+  // keys_jwe: ECDH-ES (P-256) + Concat KDF (SHA-256) + A256GCM, per RFC 7518, AAD = protected header
+  async function decryptKeysJwe(jwe, privJwk) {
+    const [h, , ivB, ctB, tagB] = jwe.split(".");
+    const header = JSON.parse(td.decode(unb64url(h)));
+    if (header.alg !== "ECDH-ES" || header.enc !== "A256GCM") throw new Error("unexpected JWE " + header.alg + "/" + header.enc);
+    const priv = await subtle.importKey("jwk", { ...privJwk, key_ops: ["deriveBits"] }, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
+    const epk = await subtle.importKey("jwk", { kty: "EC", crv: "P-256", x: header.epk.x, y: header.epk.y }, { name: "ECDH", namedCurve: "P-256" }, false, []);
+    const z = new Uint8Array(await subtle.deriveBits({ name: "ECDH", public: epk }, priv, 256));
+    const u32 = n => new Uint8Array([n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
+    const enc = te.encode(header.enc);
+    const otherInfo = cat(u32(enc.length), enc, u32(0), u32(0), u32(256));
+    const key = await sha256(cat(u32(1), z, otherInfo));
+    const k = await subtle.importKey("raw", key, "AES-GCM", false, ["decrypt"]);
+    const ct = cat(unb64url(ctB), unb64url(tagB));
+    const plain = await subtle.decrypt({ name: "AES-GCM", iv: unb64url(ivB), additionalData: te.encode(h), tagLength: 128 }, k, ct);
+    const keys = JSON.parse(td.decode(plain));
+    const sk = keys[SCOPE]; if (!sk) throw new Error("no sync key in keys_jwe");
+    const raw = unb64url(sk.k);
+    return { kid: sk.kid, bundle: { encKey: raw.slice(0, 32), hmacKey: raw.slice(32, 64) } };
+  }
+  const unb64url = s => unb64(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4));
+
   // ---------- storage
   async function storage(hawk, method, path, body, extraHeaders = {}) {
     const url = hawk.endpoint + path; const raw = body === undefined ? undefined : JSON.stringify(body);
@@ -126,9 +176,10 @@
     return JSON.stringify({ ciphertext, IV: b64(iv), hmac: hex(await hmac(bundle.hmacKey, te.encode(ciphertext))) });
   }
   async function syncKeyBundle(kB) { const km = await hkdf(kB, NS + "oldsync", 64); return { encKey: km.slice(0, 32), hmacKey: km.slice(32, 64) }; }
-  async function fetchBulkKeys(hawk, kB) {
+  async function fetchBulkKeys(hawk, kBOrBundle) {
     const { json } = await storage(hawk, "GET", "/storage/crypto/keys");
-    const keys = JSON.parse(await decryptPayload(json.payload, await syncKeyBundle(kB)));
+    const syncBundle = kBOrBundle.encKey ? kBOrBundle : await syncKeyBundle(kBOrBundle);
+    const keys = JSON.parse(await decryptPayload(json.payload, syncBundle));
     const toBundle = arr => ({ encKey: unb64(arr[0]), hmacKey: unb64(arr[1]) });
     const out = { default: toBundle(keys.default), collections: {} };
     for (const [c, v] of Object.entries(keys.collections || {})) out.collections[c] = toBundle(v);
@@ -151,6 +202,6 @@
   const ROOT_TO_SYNC = { root________: "places", menu________: "menu", toolbar_____: "toolbar", unfiled_____: "unfiled", mobile______: "mobile" };
   const guidToSyncId = g => ROOT_TO_SYNC[g] || g;
 
-  const api = { AUTH, TOKENSERVER, CLIENT_ID, SCOPE, hex, unhex, b64, unb64, b64url, quickStretch, authPW, unwrapBKey, hawkHeader, tokenHawk, login, verifyTotp, verifyEmailCode, resendCode, fetchKeys, oauthToken, keyId, tokenServer, storage, fetchBulkKeys, getRecord, putRecord, listIds, decryptPayload, encryptPayload, syncKeyBundle, guidToSyncId, FxAError };
+  const api = { AUTH, TOKENSERVER, OAUTH, CLIENT_ID, SCOPE, REDIRECT_PREFIX, beginAuthorization, parseRedirect, exchangeCode, refreshAccessToken, destroyToken, decryptKeysJwe, unb64url, hex, unhex, b64, unb64, b64url, quickStretch, authPW, unwrapBKey, hawkHeader, tokenHawk, login, verifyTotp, verifyEmailCode, resendCode, fetchKeys, oauthToken, keyId, tokenServer, storage, fetchBulkKeys, getRecord, putRecord, listIds, decryptPayload, encryptPayload, syncKeyBundle, guidToSyncId, FxAError };
   if (typeof module !== "undefined") module.exports = api; else root.PassportSync = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

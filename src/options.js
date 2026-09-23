@@ -261,25 +261,13 @@ async function restore(mode) {
 async function renderAccount() {
   const st = await browser.runtime.sendMessage({ type: "accountStatus" });
   $("#acc-connected").style.display = st.connected ? "" : "none"; $("#acc-form").style.display = st.connected ? "none" : "";
-  if (st.connected) { $("#acc-email").textContent = st.email; $("#acc-since").textContent = "since " + new Date(st.connectedAt).toLocaleString(); }
+  if (st.connected) $("#acc-since").textContent = "since " + new Date(st.connectedAt).toLocaleString();
 }
-let accKind = null;
 $("#acc-connect").onclick = async () => {
-  $("#acc-msg").textContent = ""; $("#acc-err").textContent = "";
+  $("#acc-msg").textContent = "A Mozilla login tab opened. Finish there; this page updates by itself."; $("#acc-err").textContent = "";
   const b = $("#acc-connect"); b.disabled = true;
-  try {
-    let r;
-    if (accKind) r = await browser.runtime.sendMessage({ type: "accountVerify", code: $("#acc-code").value.trim(), kind: accKind });
-    else r = await browser.runtime.sendMessage({ type: "accountConnect", email: $("#acc-mail").value.trim(), password: $("#acc-pass").value });
-    if (r.error) { $("#acc-err").textContent = r.error; return; }
-    if (r.needs) {
-      accKind = r.needs === "totp" ? "totp" : "email";
-      $("#acc-codebox").classList.remove("hidden"); $("#acc-code").focus();
-      $("#acc-codelabel").textContent = r.needs === "totp" ? "Code from your authenticator app" : r.needs === "email-link" ? "Mozilla sent you an email. Confirm it there, then enter the code if you got one, or press Connect again." : "Code from the email Mozilla just sent";
-      b.textContent = "Verify"; return;
-    }
-    if (r.connected) { $("#acc-pass").value = ""; $("#acc-code").value = ""; accKind = null; b.textContent = "Connect"; $("#acc-codebox").classList.add("hidden"); $("#acc-msg").textContent = "Connected."; await renderAccount(); }
-  } finally { b.disabled = false; }
+  try { const r = await browser.runtime.sendMessage({ type: "accountConnect" }); if (r.error) $("#acc-err").textContent = r.error; else { $("#acc-msg").textContent = "Connected."; await renderAccount(); } }
+  finally { b.disabled = false; }
 };
 $("#acc-disconnect").onclick = async () => { await browser.runtime.sendMessage({ type: "accountDisconnect" }); await renderAccount(); };
 // ---------- load / save
