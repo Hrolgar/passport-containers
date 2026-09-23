@@ -96,23 +96,24 @@ async function managedBookmarks() {
 function bmRow(b) {
   let url = b.url, hint = ""; try { const u = new URL(b.url); hint = u.searchParams.get("passport") || ""; u.searchParams.delete("passport"); url = u.toString(); } catch {}
   const tr = el("tr"); tr.dataset.id = b.id;
-  tr.append(td(input(b.title, "Title")), td(input(url, "https://")), td(containerInput(hint, { allowNone: true })), td(select(folders.map(f => ({ value: f.id, label: f.title })), b.parentId)));
+  tr.append(td(checkbox(tr)), td(input(b.title, "Title")), td(input(url, "https://")), td(containerInput(hint, { allowNone: true })), td(select(folders.map(f => ({ value: f.id, label: f.title })), b.parentId)));
   const x = el("button", "ghost", "✕"); x.title = "Delete bookmark"; x.onclick = async () => { await browser.bookmarks.remove(b.id); tr.remove(); };
-  tr.append(td(x)); tr.lastChild.className = "act"; return tr;
+  tr.firstChild.className = "chk"; tr.append(td(x)); tr.lastChild.className = "act"; return tr;
 }
 async function renderBookmarks() {
   const tb = $("#bookmarks"); tb.innerHTML = ""; bmOriginal = new Map();
+  const fs = $("#bfolder"); fs.innerHTML = ""; for (const f of folders) { const o = el("option", null, f.title); o.value = f.id; fs.append(o); }
   for (const b of (await managedBookmarks()).sort((a, c) => hostOf(a.url).localeCompare(hostOf(c.url)) || a.title.localeCompare(c.title))) { bmOriginal.set(b.id, { title: b.title, url: b.url, parentId: b.parentId }); tb.append(bmRow(b)); }
-  if (!tb.children.length) tb.append(el("tr")).append(td(el("span", "muted", "No managed bookmarks yet. The popup creates them, or add ?passport=Name to any bookmark URL.")));
+  if (!tb.children.length) { const tr = el("tr"); const c = td(el("span", "muted", "No managed bookmarks yet. The popup creates them, or add ?passport=Name to any bookmark URL.")); c.colSpan = 6; tr.append(c); tb.append(tr); }
 }
 async function saveBookmarks() {
   let n = 0;
   for (const tr of $("#bookmarks").children) {
     const id = tr.dataset.id; if (!id) continue;
-    const title = tr.children[0].querySelector("input").value.trim();
-    let url = tr.children[1].querySelector("input").value.trim();
-    const hint = tr.children[2].firstChild.readValue();
-    const parentId = tr.children[3].querySelector("select").value;
+    const title = tr.children[1].querySelector("input").value.trim();
+    let url = tr.children[2].querySelector("input").value.trim();
+    const hint = tr.children[3].firstChild.readValue();
+    const parentId = tr.children[4].querySelector("select").value;
     try { const u = new URL(url); u.searchParams.delete("passport"); if (hint) u.searchParams.set("passport", hint); url = u.toString(); } catch { continue; }
     const o = bmOriginal.get(id);
     if (title !== o.title || url !== o.url) { await browser.bookmarks.update(id, { title, url }); n++; }
@@ -207,6 +208,16 @@ $("#scollapse").onclick = () => { for (const g of document.querySelectorAll("#si
 $("#sexpand").onclick = () => { for (const g of document.querySelectorAll("#sites .group")) g.classList.remove("collapsed"); };
 wireBulk("#rules", "#rall", "#rbulk", "#rcount", "#rbulkc", "#rapply", "#rdelete");
 wireBulk("#keywords", "#kall", "#kbulk", "#kcount", "#kbulkc", "#kapply", "#kdelete");
+const bmRefresh = wireBulk("#bookmarks", "#ball", "#bbulk", "#bcount", "#bbulkc", "#bapply", "#bdelete");
+$("#bdelete").onclick = async () => {
+  const rows = [...$("#bookmarks").children].filter(tr => tr.querySelector(".sel")?.checked && !tr.classList.contains("hidden"));
+  for (const tr of rows) { if (tr.dataset.id) await browser.bookmarks.remove(tr.dataset.id); tr.remove(); }
+  $("#ball").checked = false; bmRefresh();
+};
+$("#bmove").onclick = () => {
+  const to = $("#bfolder").value;
+  for (const tr of $("#bookmarks").children) if (tr.querySelector(".sel")?.checked && !tr.classList.contains("hidden")) tr.children[4].querySelector("select").value = to;
+};
 for (const a of document.querySelectorAll("nav a")) a.onclick = e => { e.preventDefault(); location.hash = a.dataset.tab; show(a.dataset.tab); };
 window.addEventListener("hashchange", () => show(location.hash.slice(1) || "sites"));
 show(location.hash.slice(1) || "sites");
