@@ -1,4 +1,4 @@
-name: CI
+name: CI and release
 on:
   push:
     branches: [main]
@@ -14,5 +14,40 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
-      - uses: actions/upload-artifact@v4
-        with: { name: passport-unsigned, path: dist/*.zip }
+
+  publish:
+    # main is the live version: a new manifest version on main goes straight to addons.mozilla.org
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - name: Is this manifest version already released?
+        id: v
+        run: |
+          V=$(node -p "require('./src/manifest.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then
+            echo "v$V already tagged, nothing to publish"; echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$V is new, publishing"; echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Submit listed version to addons.mozilla.org
+        if: steps.v.outputs.new == 'true'
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: npx web-ext sign -s src -a dist --channel listed --amo-metadata amo-metadata.json --approval-timeout 0
+      - name: Tag and GitHub release
+        if: steps.v.outputs.new == 'true'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          V=${{ steps.v.outputs.version }}
+          npm run build
+          git tag "v$V" && git push origin "v$V"
+          gh release create "v$V" dist/*.zip --title "v$V" --generate-notes

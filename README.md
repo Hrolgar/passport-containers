@@ -43,13 +43,14 @@ Load Temporary Add-on. Temporary add-ons vanish on restart; sign for a permanent
 
 ## Release
 
-Every push to `main` runs tests, lint and a build. To publish a new version to
-addons.mozilla.org: bump `version` in `src/manifest.json` and `package.json`, commit, then
+`main` is the live version. Every push to `main` runs tests, lint and a build. If the
+`version` in `src/manifest.json` has no `vX.Y.Z` tag yet, the same run submits that version
+to addons.mozilla.org (listed channel), creates the tag and a GitHub release with the source
+package. Pushing without a version bump only runs the checks.
 
-    git tag v0.2.0 && git push origin main --tags
-
-The release workflow submits the version to AMO's listed channel (Mozilla reviews it, usually
-within a day or two) and attaches the source package to a GitHub release. AMO rejects a version
-number it has seen before, so the tag must match the manifest and be new.
+So a release is: bump `version` in `src/manifest.json` (and `package.json`), commit, push.
+Mozilla reviews listed versions by hand, usually within a day or two, then signed-in browsers
+update automatically. AMO never accepts a version number it has seen before, deleted ones
+included, so always go up.
 
 Install: https://addons.mozilla.org/firefox/addon/passport-containers/
