@@ -50,16 +50,23 @@ URL reopened in a new tab in the right container next to the old one. A fresh ta
 For a quick manual test load `src/manifest.json` via about:debugging, This Firefox,
 Load Temporary Add-on. Temporary add-ons vanish on restart; sign for a permanent install.
 
+## Develop and test locally
+
+    git clone https://github.com/hrolgar/passport-containers && cd passport-containers
+    npm install && npm test
+
+Load it into your real Firefox profile without signing: about:debugging, This Firefox, Load
+Temporary Add-on, pick `src/manifest.json`. It runs with your real containers, bookmarks and
+sync storage. Edit a file, then press Reload on that page to pick the change up. Temporary
+add-ons are removed when Firefox exits.
+
 ## Release
 
-`main` is the live version. Every push to `main` runs tests, lint and a build. If the
-`version` in `src/manifest.json` has no `vX.Y.Z` tag yet, the same run submits that version
-to addons.mozilla.org (listed channel), creates the tag and a GitHub release with the source
-package. Pushing without a version bump only runs the checks.
-
-So a release is: bump `version` in `src/manifest.json` (and `package.json`), commit, push.
-Mozilla reviews listed versions by hand, usually within a day or two, then signed-in browsers
-update automatically. AMO never accepts a version number it has seen before, deleted ones
-included, so always go up.
+Every push to `main` runs tests, lint and a build, and nothing else: main never publishes,
+because every upload to addons.mozilla.org restarts the human review. To publish, bump
+`version` in `src/manifest.json` and `package.json`, push, then either push a matching tag
+(`git tag v0.3.0 && git push origin v0.3.0`) or press "Run workflow" on the CI and release
+action. That submits the version to AMO's listed channel, tags if needed, and creates a GitHub
+release. AMO never accepts a version number it has seen before, deleted ones included.
 
 Install: https://addons.mozilla.org/firefox/addon/passport-containers/

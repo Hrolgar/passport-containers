@@ -2,7 +2,9 @@ name: CI and release
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
+  workflow_dispatch:
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -14,11 +16,14 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with: { name: passport-unsigned, path: dist/*.zip }
 
   publish:
-    # main is the live version: a new manifest version on main goes straight to addons.mozilla.org
+    # Publishing is explicit: push a v-tag matching the manifest version, or press "Run workflow".
+    # Every upload restarts Mozilla's review, so main itself never publishes.
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
@@ -27,27 +32,22 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci
-      - name: Is this manifest version already released?
+      - name: Version must be new (and match the tag, if tagged)
         id: v
         run: |
           V=$(node -p "require('./src/manifest.json').version")
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          if git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then
-            echo "v$V already tagged, nothing to publish"; echo "new=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "v$V is new, publishing"; echo "new=true" >> "$GITHUB_OUTPUT"
-          fi
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$V" ]]; then echo "tag $GITHUB_REF_NAME != manifest v$V"; exit 1; fi
+          if [[ "$GITHUB_REF" != refs/tags/* ]] && git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then echo "v$V already released, bump the manifest first"; exit 1; fi
       - name: Submit listed version to addons.mozilla.org
-        if: steps.v.outputs.new == 'true'
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: npx web-ext sign -s src -a dist --channel listed --amo-metadata amo-metadata.json --approval-timeout 0
-      - name: Tag and GitHub release
-        if: steps.v.outputs.new == 'true'
+      - name: Tag (if not already) and GitHub release
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           V=${{ steps.v.outputs.version }}
           npm run build
-          git tag "v$V" && git push origin "v$V"
+          git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null || { git tag "v$V" && git push origin "v$V"; }
           gh release create "v$V" dist/*.zip --title "v$V" --generate-notes
