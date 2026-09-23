@@ -262,6 +262,7 @@ async function renderAccount() {
   const st = await browser.runtime.sendMessage({ type: "accountStatus" });
   $("#acc-connected").style.display = st.connected ? "" : "none"; $("#acc-form").style.display = st.connected ? "none" : "";
   if (st.connected) $("#acc-since").textContent = "since " + new Date(st.connectedAt).toLocaleString();
+  const l = st.lastNative; $("#acc-last").textContent = l ? `Last keyword write: ${l.keyword} at ${new Date(l.at).toLocaleTimeString()}: ${l.ok ? "ok" + (l.unchanged ? " (already set)" : "") : "failed: " + l.error}` : "";
 }
 $("#acc-connect").onclick = async () => {
   $("#acc-msg").textContent = "Waiting for you to finish signing in on the Mozilla tab that just opened. When you are done it closes by itself and this page says Connected."; $("#acc-err").textContent = "";
