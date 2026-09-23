@@ -1,5 +1,5 @@
 /* global PassportMatcher */
-const { parseRules, matchUrl, containerNames, parseShortcuts, serializeShortcuts } = PassportMatcher;
+const { parseRules, matchUrl, containerNames, parseShortcuts, serializeShortcuts, keywordFromSearch } = PassportMatcher;
 const COLORS = ["blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const CHUNK = 7000; // storage.sync caps one item at 8 KiB
 
@@ -66,21 +66,31 @@ browser.omnibox.onInputChanged.addListener(async (text, suggest) => {
   suggest(Object.keys(shortcuts).filter(k => k.startsWith(q)).sort().slice(0, 8)
     .map(k => ({ content: k, description: `${k}  ${shortcuts[k].url}${shortcuts[k].container ? "  [" + shortcuts[k].container + "]" : ""}` })));
 });
+async function openShortcut(sc, cur, disposition = "currentTab") {
+  const store = storeFor(sc.container) || "firefox-default";
+  if (cur && disposition === "currentTab" && cur.cookieStoreId === store) { await browser.tabs.update(cur.id, { url: sc.url }); return; }
+  await browser.tabs.create({ url: sc.url, cookieStoreId: store, active: disposition !== "newBackgroundTab", index: cur ? cur.index + 1 : undefined, windowId: cur ? cur.windowId : undefined });
+  if (cur && disposition === "currentTab" && /^about:(blank|newtab|home)$/.test(cur.url || "")) browser.tabs.remove(cur.id).catch(() => {});
+}
 browser.omnibox.onInputEntered.addListener(async (text, disposition) => {
   await loading;
-  const k = text.trim().toLowerCase().split(/\s+/)[0];
-  const sc = shortcuts[k];
+  const sc = shortcuts[text.trim().toLowerCase().split(/\s+/)[0]];
   if (!sc) return;
-  const store = storeFor(sc.container) || "firefox-default";
   const [cur] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (cur && disposition === "currentTab" && cur.cookieStoreId === store) { await browser.tabs.update(cur.id, { url: sc.url }); return; }
-  await browser.tabs.create({ url: sc.url, cookieStoreId: store, active: disposition !== "newBackgroundTab", index: cur ? cur.index + 1 : undefined });
-  if (cur && disposition === "currentTab" && /^about:(blank|newtab|home)$/.test(cur.url || "")) browser.tabs.remove(cur.id).catch(() => {});
+  await openShortcut(sc, cur, disposition);
 });
 
 const inflight = new Set();
 browser.webRequest.onBeforeRequest.addListener(async details => {
   if (details.tabId < 0) return {};
+  await loading;
+  // Bare keyword typed in the URL bar: Firefox sends it to the search engine, we take it instead.
+  const kw = keywordFromSearch(details.url, shortcuts);
+  if (kw) {
+    let cur; try { cur = await browser.tabs.get(details.tabId); } catch { return {}; }
+    openShortcut(shortcuts[kw], cur).catch(e => console.error("passport shortcut", e));
+    return { cancel: true };
+  }
   const target = targetStore(details.url);
   if (!target) return {};
   let tab; try { tab = await browser.tabs.get(details.tabId); } catch { return {}; }

@@ -1,6 +1,6 @@
 {
   "name": "passport",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "URL to container rules synced through your Firefox account",
   "scripts": {

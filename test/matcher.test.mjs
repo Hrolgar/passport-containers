@@ -68,3 +68,22 @@ test("shortcuts parse, normalise and round-trip", () => {
   assert.deepEqual(parseShortcuts(serializeShortcuts(m)), m);
   assert.equal(serializeShortcuts({ b: { url: "https://b", container: "" }, a: { url: "https://a", container: "X" } }), "a , https://a , X\nb , https://b");
 });
+
+const { searchQuery, keywordFromSearch } = createRequire(import.meta.url)("../src/matcher.js");
+test("recognises default-engine search requests and extracts the typed text", () => {
+  assert.equal(searchQuery("https://www.google.com/search?client=firefox-b-d&q=pvg"), "pvg");
+  assert.equal(searchQuery("https://www.google.no/search?q=pvg&ie=utf-8"), "pvg");
+  assert.equal(searchQuery("https://duckduckgo.com/?q=pvg&t=ffab"), "pvg");
+  assert.equal(searchQuery("https://www.bing.com/search?q=two+words"), "two words");
+  assert.equal(searchQuery("https://www.startpage.com/do/search?query=pvg"), null); // not the /?query form
+  assert.equal(searchQuery("https://www.google.com/maps?q=pvg"), null);
+  assert.equal(searchQuery("https://example.com/search?q=pvg"), null);
+});
+test("a bare keyword search maps to a shortcut, anything else does not", () => {
+  const sc = { pvg: { url: "https://www.vg.no/", container: "Personal" } };
+  assert.equal(keywordFromSearch("https://www.google.com/search?q=pvg", sc), "pvg");
+  assert.equal(keywordFromSearch("https://www.google.com/search?q=PVG", sc), "pvg");
+  assert.equal(keywordFromSearch("https://www.google.com/search?q=pvg+news", sc), null);
+  assert.equal(keywordFromSearch("https://www.google.com/search?q=vg", sc), null);
+  assert.equal(keywordFromSearch("https://www.vg.no/?q=pvg", sc), null);
+});

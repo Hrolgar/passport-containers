@@ -66,6 +66,37 @@
   function serializeShortcuts(map) {
     return Object.keys(map).sort().map(k => `${k} , ${map[k].url}${map[k].container ? " , " + map[k].container : ""}`).join("\n");
   }
-  const api = { parseRules, matchUrl, containerNames, globToRegex, parseShortcuts, serializeShortcuts };
+  // A bare keyword typed in the URL bar becomes a search on the default engine. Recognise
+  // those requests so the keyword can be intercepted before the search ever loads.
+  const ENGINES = [
+    [/(^|\.)google\.[a-z.]+$/, "/search", "q"],
+    [/(^|\.)bing\.com$/, "/search", "q"],
+    [/(^|\.)duckduckgo\.com$/, "/", "q"],
+    [/(^|\.)startpage\.com$/, "/", "query"],
+    [/(^|\.)ecosia\.org$/, "/search", "q"],
+    [/(^|\.)search\.brave\.com$/, "/search", "q"],
+    [/(^|\.)qwant\.com$/, "/", "q"],
+    [/(^|\.)search\.yahoo\.com$/, "/search", "p"],
+    [/(^|\.)yandex\.[a-z]+$/, "/search", "text"],
+    [/(^|\.)kagi\.com$/, "/search", "q"],
+  ];
+  function searchQuery(url) {
+    let u; try { u = new URL(url); } catch { return null; }
+    if (!/^https?:$/.test(u.protocol)) return null;
+    for (const [host, path, param] of ENGINES) {
+      if (host.test(u.hostname) && u.pathname.startsWith(path)) {
+        const q = (u.searchParams.get(param) || "").trim();
+        return q || null;
+      }
+    }
+    return null;
+  }
+  function keywordFromSearch(url, shortcuts) {
+    const q = searchQuery(url);
+    if (!q || /\s/.test(q)) return null;
+    const k = q.toLowerCase();
+    return shortcuts[k] ? k : null;
+  }
+  const api = { parseRules, matchUrl, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

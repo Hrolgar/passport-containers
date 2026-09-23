@@ -27,9 +27,13 @@ uncontained profile.
 
 The popup can do the whole thing in one go: the rule, a bookmark in a folder you pick
 (default: a "Passport" folder in the bookmarks menu), and a Passport keyword. Keywords live
-in sync storage next to the rules. Type `go mail` in the URL bar and the page opens directly
-in its container. Firefox's own bookmark keywords cannot be set by an extension (there is no
-API for it), which is why Passport has its own; they also carry the container, which a
+in sync storage next to the rules. Type `mail` alone in the URL bar, exactly as you would a
+bookmark keyword, and the page opens directly in its container. Firefox's own bookmark
+keywords cannot be set by an extension (there is no API for it), so Passport does it
+differently: a bare word in the URL bar becomes a search on your default engine, and Passport
+catches that request before it loads when the word is one of your keywords. Works with
+Google, Bing, DuckDuckGo, Startpage, Ecosia, Brave, Qwant, Yahoo, Yandex and Kagi as the
+default engine. `go mail` works as well. Passport keywords also carry the container, which a
 bookmark keyword never could.
 
 ## How it routes

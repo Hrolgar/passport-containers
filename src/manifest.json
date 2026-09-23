@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Passport Containers",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Per-URL container rules that follow your Firefox account. Containers are recreated by name on every machine you sign in to.",
   "browser_specific_settings": {
     "gecko": {
