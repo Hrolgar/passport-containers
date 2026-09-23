@@ -93,7 +93,7 @@
     }
     return null;
   }
-  // "kgh klaria-web": first word is the keyword, the rest are arguments for a %s in its URL.
+  // "kgh my-repo": first word is the keyword, the rest are arguments for a %s in its URL.
   function resolveShortcut(text, shortcuts) {
     const t = String(text || "").trim(); if (!t) return null;
     const sp = t.search(/\s/); const k = (sp < 0 ? t : t.slice(0, sp)).toLowerCase(); const args = sp < 0 ? "" : t.slice(sp + 1).trim();

@@ -115,7 +115,7 @@ test("matchRule returns the winning rule and removeRule drops it by pattern", ()
 const { resolveShortcut, expandUrl, findProblems, engineRecognised } = createRequire(import.meta.url)("../src/matcher.js");
 test("keyword arguments fill %s, and a keyword without %s refuses extra words", () => {
   const sc = { kgh: { url: "https://github.com/acme/%s", container: "Work" }, pdb: { url: "https://news.example.com/", container: "Personal" } };
-  assert.deepEqual(resolveShortcut("kgh klaria-web", sc), { keyword: "kgh", shortcut: sc.kgh, args: "klaria-web" });
+  assert.deepEqual(resolveShortcut("kgh my-repo", sc), { keyword: "kgh", shortcut: sc.kgh, args: "my-repo" });
   assert.equal(expandUrl(sc.kgh.url, "a b/c"), "https://github.com/acme/a%20b%2Fc");
   assert.equal(expandUrl(sc.kgh.url, ""), "https://github.com/acme/");
   assert.equal(resolveShortcut("KGH", sc).args, "");

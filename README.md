@@ -40,7 +40,7 @@ bookmark keyword never could.
 ## Keyword arguments
 
 Put `%s` in a keyword's URL and whatever you type after the keyword fills it in:
-`kgh klaria-web` with `https://github.com/acme/%s`. A keyword without `%s` ignores
+`kgh my-repo` with `https://github.com/acme/%s`. A keyword without `%s` ignores
 extra words and lets the search happen, so `pdb news` is still a search.
 
 ## Reopen, pause, shortcuts
