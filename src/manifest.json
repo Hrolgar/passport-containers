@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Passport Containers",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Per-URL container rules that follow your Firefox account. Containers are recreated by name on every machine you sign in to.",
   "browser_specific_settings": {
     "gecko": {
@@ -23,6 +23,7 @@
     "webRequestBlocking",
     "bookmarks",
     "menus",
+    "search",
     "<all_urls>"
   ],
   "background": {
@@ -47,5 +48,28 @@
   "homepage_url": "https://hrolgar.com",
   "omnibox": {
     "keyword": "go"
+  },
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
+      "description": "Open the Passport popup"
+    },
+    "reopen-next-container": {
+      "suggested_key": {
+        "default": "Alt+Shift+Right"
+      },
+      "description": "Reopen this tab in the next container"
+    },
+    "reopen-prev-container": {
+      "suggested_key": {
+        "default": "Alt+Shift+Left"
+      },
+      "description": "Reopen this tab in the previous container"
+    },
+    "toggle-pause": {
+      "description": "Pause or resume Passport routing"
+    }
   }
 }

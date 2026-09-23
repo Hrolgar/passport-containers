@@ -93,12 +93,48 @@
     }
     return null;
   }
+  // "kgh klaria-web": first word is the keyword, the rest are arguments for a %s in its URL.
+  function resolveShortcut(text, shortcuts) {
+    const t = String(text || "").trim(); if (!t) return null;
+    const sp = t.search(/\s/); const k = (sp < 0 ? t : t.slice(0, sp)).toLowerCase(); const args = sp < 0 ? "" : t.slice(sp + 1).trim();
+    const sc = shortcuts[k]; if (!sc) return null;
+    if (args && !sc.url.includes("%s")) return null;          // "pdb something" is a real search
+    return { keyword: k, shortcut: sc, args };
+  }
+  function expandUrl(template, args) {
+    return String(template).replace(/%s/g, args ? encodeURIComponent(args) : "");
+  }
   function keywordFromSearch(url, shortcuts) {
     const q = searchQuery(url);
-    if (!q || /\s/.test(q)) return null;
-    const k = q.toLowerCase();
-    return shortcuts[k] ? k : null;
+    const r = q ? resolveShortcut(q, shortcuts) : null;
+    return r ? r.keyword : null;
   }
+  // Consistency checks shown on the Sites tab
+  function findProblems({ rules = [], shortcuts = {}, containers = [], engine = null } = {}) {
+    const out = [];
+    const seen = new Map();
+    for (const r of rules) {
+      const key = r.type + ":" + r.pattern;
+      if (seen.has(key) && seen.get(key) !== r.container) out.push({ level: "warn", text: `Two rules for ${r.pattern} point at ${seen.get(key)} and ${r.container}; the earlier one wins.` });
+      seen.set(key, r.container);
+      if (r.type === "regex") { try { new RegExp(r.pattern); } catch (e) { out.push({ level: "error", text: `Regex rule ${r.pattern} is invalid: ${e.message}` }); } }
+      if (r.type === "plain" && /[?#]/.test(r.pattern)) out.push({ level: "warn", text: `Plain rule ${r.pattern} contains a query string, which plain rules never see. Use a regex (@) rule.` });
+    }
+    for (const [k, v] of Object.entries(shortcuts)) {
+      const ruleC = matchUrl(expandUrl(v.url, "x"), rules);
+      if (ruleC && v.container && ruleC.toLowerCase() !== v.container.toLowerCase())
+        out.push({ level: "info", text: `Keyword ${k} opens ${v.url} in ${v.container}, but a rule sends that site to ${ruleC}. The keyword still works; plain links will land in ${ruleC}.` });
+      if (!v.container) out.push({ level: "info", text: `Keyword ${k} has no container; it opens wherever you are.` });
+    }
+    const names = new Set(containers.map(c => c.name.toLowerCase()));
+    if (containers.length) {
+      for (const n of containerNames(rules)) if (n.toLowerCase() !== "default" && !names.has(n.toLowerCase())) out.push({ level: "info", text: `Container ${n} does not exist here yet; it will be created when Passport next loads.` });
+    }
+    if (engine === false) out.push({ level: "warn", text: "Your default search engine is not one Passport recognises, so bare keywords in the URL bar will not work. Use the 'go keyword' form, or switch to Google, Bing, DuckDuckGo, Startpage, Ecosia, Brave, Qwant, Yahoo, Yandex or Kagi." });
+    return out;
+  }
+  const KNOWN_ENGINES = ["google", "bing", "duckduckgo", "startpage", "ecosia", "brave", "qwant", "yahoo", "yandex", "kagi"];
+  function engineRecognised(name) { const n = String(name || "").toLowerCase(); return KNOWN_ENGINES.some(e => n.includes(e)); }
   // Explicit container hint in a URL: https://site/?passport=Work  -> open in Work, strip the param.
   // Lets a plain bookmark choose its container; bookmarks sync natively.
   function containerHint(url) {
@@ -140,6 +176,6 @@
   function serializeRules(rules) {
     return rules.map(r => (r.type === "regex" ? "@" : r.type === "glob" ? "!" : "") + r.pattern + " , " + r.container).join("\n") + (rules.length ? "\n" : "");
   }
-  const api = { parseRules, serializeRules, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
+  const api = { parseRules, serializeRules, resolveShortcut, expandUrl, findProblems, engineRecognised, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

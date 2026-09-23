@@ -111,3 +111,28 @@ test("matchRule returns the winning rule and removeRule drops it by pattern", ()
   assert.equal(removeRule(t, "https://a.example"), "@b\\.example/\\?x , Personal\nc.example/p , Work\n");
   assert.equal(removeRule("a.example , Work\n", "a.example"), "");
 });
+
+const { resolveShortcut, expandUrl, findProblems, engineRecognised } = createRequire(import.meta.url)("../src/matcher.js");
+test("keyword arguments fill %s, and a keyword without %s refuses extra words", () => {
+  const sc = { kgh: { url: "https://github.com/acme/%s", container: "Work" }, pdb: { url: "https://news.example.com/", container: "Personal" } };
+  assert.deepEqual(resolveShortcut("kgh klaria-web", sc), { keyword: "kgh", shortcut: sc.kgh, args: "klaria-web" });
+  assert.equal(expandUrl(sc.kgh.url, "a b/c"), "https://github.com/acme/a%20b%2Fc");
+  assert.equal(expandUrl(sc.kgh.url, ""), "https://github.com/acme/");
+  assert.equal(resolveShortcut("KGH", sc).args, "");
+  assert.equal(resolveShortcut("pdb news", sc), null);
+  assert.equal(resolveShortcut("nope", sc), null);
+});
+test("findProblems flags duplicates, bad regex, plain-with-query, keyword/rule disagreement and unknown engine", () => {
+  const rules = parseRules("a.example , Work\na.example , Personal\n@[bad , Work\nb.example/x?y=1 , Work\nnews.example.com , Personal\n");
+  const probs = findProblems({ rules, shortcuts: { kn: { url: "https://news.example.com/", container: "Work" }, x: { url: "https://x.example/", container: "" } }, containers: [{ name: "Work" }], engine: false });
+  const texts = probs.map(p => p.text).join("\n");
+  assert.match(texts, /Two rules for a.example/);
+  assert.match(texts, /Regex rule \[bad is invalid/);
+  assert.match(texts, /Plain rule b.example\/x\?y=1 contains a query/);
+  assert.match(texts, /Keyword kn opens .* in Work, but a rule sends that site to Personal/);
+  assert.match(texts, /Keyword x has no container/);
+  assert.match(texts, /Container Personal does not exist here yet/);
+  assert.match(texts, /default search engine is not one Passport recognises/);
+  assert.equal(findProblems({ rules: parseRules("a.example , Work\n"), shortcuts: {}, containers: [{ name: "Work" }], engine: true }).length, 0);
+  assert.equal(engineRecognised("Google"), true); assert.equal(engineRecognised("DuckDuckGo"), true); assert.equal(engineRecognised("Mojeek"), false);
+});

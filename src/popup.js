@@ -41,6 +41,15 @@ async function renderHave() {
   const m = await browser.runtime.sendMessage({ type: "match", url: tab.url });
   const cur = state.containers.find(c => c.cookieStoreId === tab.cookieStoreId);
   const ti = $("#tabinfo"); ti.innerHTML = ""; ti.append(dot(cur && cur.name), document.createTextNode(cur ? cur.name : "no container"));
+  $("#pause").checked = !!state.paused; $("#pausebar").style.background = state.paused ? "rgba(180,83,9,.15)" : "";
+  const ro = $("#reopen"); ro.innerHTML = "";
+  const targets = [{ name: "Default", cookieStoreId: "firefox-default", color: "" }, ...state.containers];
+  for (const t of targets) {
+    if (t.cookieStoreId === tab.cookieStoreId) continue;
+    const b = el("button", null); b.style.margin = "0 4px 4px 0"; b.style.padding = "2px 8px"; b.append(dot(t.name), document.createTextNode(t.name));
+    b.onclick = async () => { await browser.runtime.sendMessage({ type: "reopen", tabId: tab.id, store: t.cookieStoreId }); window.close(); };
+    ro.append(b);
+  }
   if (m.container) box.append(row("rule", [m.type === "plain" ? "" : m.type + " ", el("span", "k", m.pattern), "  \u2192  ", dot(m.container), m.container],
     async () => { await browser.runtime.sendMessage({ type: "deleteRule", pattern: m.pattern }); renderHave(); }));
   const kws = Object.entries(state.shortcuts || {}).filter(([, v]) => sameSite(v.url));
@@ -114,5 +123,6 @@ async function renderHave() {
     } catch (e) { $("#err").textContent = e.message; }
   };
   $("#opt").onclick = e => { e.preventDefault(); browser.runtime.openOptionsPage(); };
+  $("#pause").onchange = async () => { const r = await browser.runtime.sendMessage({ type: "setPaused", paused: $("#pause").checked }); state.paused = r.paused; $("#pausebar").style.background = r.paused ? "rgba(180,83,9,.15)" : ""; };
   document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT") $("#add").click(); });
 })();

@@ -4,12 +4,14 @@ header{display:flex;align-items:center;gap:8px;margin-bottom:6px}header img{widt
 #tabinfo{font-size:12px;color:var(--muted)}
 </style></head><body>
 <header><img src="icons/passport.svg" alt=""><h1>Passport</h1><span class="sp"></span><span id="tabinfo"></span><button class="ghost" id="opt" title="All rules and keywords">&#9881;</button></header>
+<div class="card" id="pausebar" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:8px"><label class="toggle" style="margin:0"><input type="checkbox" id="pause"> Paused: no routing until resumed</label></div>
+<div class="row" style="border:0;padding:0 0 4px"><span class="tag">Reopen in</span><span class="body" id="reopen" style="white-space:normal"></span></div>
 <h2>On this site</h2>
 <div class="card" id="have"><small>Nothing yet.</small></div>
 <h2>Add</h2>
 <div class="card">
   <div class="split">
-    <div class="field" style="margin-top:0"><label>Keyword</label><input id="keyword" placeholder="pdb" autocomplete="off"></div>
+    <div class="field" style="margin-top:0"><label>Keyword <small>(%s in the URL takes words after it)</small></label><input id="keyword" placeholder="pdb" autocomplete="off"></div>
     <div class="field" style="margin-top:0"><label>Opens in</label><select id="container"></select></div>
   </div>
   <input id="newname" class="hidden" placeholder="New container name" style="margin-top:6px">

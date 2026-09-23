@@ -36,6 +36,27 @@ Google, Bing, DuckDuckGo, Startpage, Ecosia, Brave, Qwant, Yahoo, Yandex and Kag
 default engine. `go mail` works as well. Passport keywords also carry the container, which a
 bookmark keyword never could.
 
+## Keyword arguments
+
+Put `%s` in a keyword's URL and whatever you type after the keyword fills it in:
+`kgh klaria-web` with `https://github.com/acme/%s`. A keyword without `%s` ignores
+extra words and lets the search happen, so `pdb news` is still a search.
+
+## Reopen, pause, shortcuts
+
+The popup has a "Reopen in" row that moves the current tab into another container, and a
+pause switch that stops all routing until you resume it (also in the toolbar icon's
+right-click menu, with an "II" badge while paused). Keys: Alt+Shift+P opens the popup,
+Alt+Shift+Right / Left reopen the tab in the next or previous container. Rebind them in
+about:addons, gear menu, Manage Extension Shortcuts.
+
+## Problems, backup
+
+The Sites tab lists inconsistencies at the top: duplicate rules, invalid regex, plain rules
+with a query string, keywords whose site a rule sends elsewhere, containers not yet created,
+and a default search engine the bare-keyword trick cannot see. The Advanced tab downloads a
+JSON backup and restores one, merged into or replacing what is there.
+
 ## One site, several containers
 
 Two keywords can point at the same URL with different containers (`pdb` to Personal, `kdb`
