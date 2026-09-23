@@ -121,7 +121,8 @@
       if (pat === key) { hit = true; return `${key} , ${container}`; }
       return l;
     });
-    if (!hit) { if (out.length && out[out.length - 1].trim() === "") out.pop(); out.push(`${key} , ${container}`); }
+    while (out.length && out[out.length - 1].trim() === "") out.pop();
+    if (!hit) out.push(`${key} , ${container}`);
     return out.join("\n") + "\n";
   }
   const api = { parseRules, matchUrl, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
