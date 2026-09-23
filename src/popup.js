@@ -90,7 +90,10 @@ async function renderHave() {
     const acc = await browser.runtime.sendMessage({ type: "accountStatus" });
     state.account = acc;
     $("#kwhint").textContent = acc.connected ? "(becomes a real Firefox keyword on the bookmark, synced everywhere)" : "(Passport keyword: Enter works, no top suggestion. Connect your Mozilla account in settings for real keywords)";
-    $("#keyword").focus();
+    // Firefox popups on Linux/Wayland show a caret before the popup owns keyboard focus; claim it once it does.
+    const grab = () => { window.focus(); $("#keyword").focus(); };
+    grab(); setTimeout(grab, 120); setTimeout(grab, 400);
+    window.addEventListener("focus", grab, { once: true });
   } catch (e) { $("#err").textContent = "Popup failed to load: " + e.message; }
 
   $("#add").onclick = async () => {
