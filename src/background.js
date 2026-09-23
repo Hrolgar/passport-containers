@@ -1,4 +1,4 @@
-/* global PassportMatcher */
+/* global PassportMatcher, PassportAccount */
 const { parseRules, matchUrl, matchRule, removeRule, containerNames, parseShortcuts, serializeShortcuts, resolveShortcut, expandUrl, searchQuery, containerHint, upsertRule } = PassportMatcher;
 const COLORS = ["blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const CHUNK = 7000; // storage.sync caps one item at 8 KiB
@@ -194,6 +194,12 @@ browser.runtime.onMessage.addListener(async msg => {
   if (msg.type === "reopen") { const tab = await browser.tabs.get(msg.tabId); await reopenTab(tab, msg.store); return { ok: true }; }
   if (msg.type === "setPaused") { paused = !!msg.paused; await browser.storage.local.set({ paused }); await showPaused(); return { ok: true, paused }; }
   if (msg.type === "engine") { try { const e = (await browser.search.get()).find(x => x.isDefault); return { name: e ? e.name : null }; } catch { return { name: null }; } }
+  // Mozilla account: native keywords through Sync
+  if (msg.type === "accountStatus") return PassportAccount.status();
+  if (msg.type === "accountConnect") { try { return await PassportAccount.connect(msg.email, msg.password); } catch (e) { return { error: e.message }; } }
+  if (msg.type === "accountVerify") { try { return await PassportAccount.verify(msg.code, msg.kind); } catch (e) { return { error: e.message }; } }
+  if (msg.type === "accountDisconnect") { await PassportAccount.disconnect(); return { ok: true }; }
+  if (msg.type === "setNativeKeyword") { try { return await PassportAccount.setNativeKeyword(msg.bookmarkId, msg.keyword); } catch (e) { return { error: e.message }; } }
   if (msg.type === "restore") {
     // {rulesText, shortcuts, containerMeta}, mode "replace" | "merge"
     const s = await readSync();

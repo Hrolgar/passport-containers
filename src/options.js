@@ -257,13 +257,38 @@ async function restore(mode) {
     $("#msg-io").textContent = `Restored: ${r.rules} rules, ${r.keywords} keywords. Synced.`; await load();
   } catch (e) { $("#err-io").textContent = e.message; }
 }
+// ---------- Mozilla account
+async function renderAccount() {
+  const st = await browser.runtime.sendMessage({ type: "accountStatus" });
+  $("#acc-connected").style.display = st.connected ? "" : "none"; $("#acc-form").style.display = st.connected ? "none" : "";
+  if (st.connected) { $("#acc-email").textContent = st.email; $("#acc-since").textContent = "since " + new Date(st.connectedAt).toLocaleString(); }
+}
+let accKind = null;
+$("#acc-connect").onclick = async () => {
+  $("#acc-msg").textContent = ""; $("#acc-err").textContent = "";
+  const b = $("#acc-connect"); b.disabled = true;
+  try {
+    let r;
+    if (accKind) r = await browser.runtime.sendMessage({ type: "accountVerify", code: $("#acc-code").value.trim(), kind: accKind });
+    else r = await browser.runtime.sendMessage({ type: "accountConnect", email: $("#acc-mail").value.trim(), password: $("#acc-pass").value });
+    if (r.error) { $("#acc-err").textContent = r.error; return; }
+    if (r.needs) {
+      accKind = r.needs === "totp" ? "totp" : "email";
+      $("#acc-codebox").classList.remove("hidden"); $("#acc-code").focus();
+      $("#acc-codelabel").textContent = r.needs === "totp" ? "Code from your authenticator app" : r.needs === "email-link" ? "Mozilla sent you an email. Confirm it there, then enter the code if you got one, or press Connect again." : "Code from the email Mozilla just sent";
+      b.textContent = "Verify"; return;
+    }
+    if (r.connected) { $("#acc-pass").value = ""; $("#acc-code").value = ""; accKind = null; b.textContent = "Connect"; $("#acc-codebox").classList.add("hidden"); $("#acc-msg").textContent = "Connected."; await renderAccount(); }
+  } finally { b.disabled = false; }
+};
+$("#acc-disconnect").onclick = async () => { await browser.runtime.sendMessage({ type: "accountDisconnect" }); await renderAccount(); };
 // ---------- load / save
 function renderAll() {
   const rb = $("#rules"); rb.innerHTML = ""; const rs = parseRules(state.rulesText); for (const r of rs) rb.append(ruleRow(r));
   $("#rules-empty").classList.toggle("hidden", rs.length > 0);
   const kb = $("#keywords"); kb.innerHTML = ""; for (const [k, v] of Object.entries(state.shortcuts).sort()) kb.append(kwRow(k, v));
   $("#rawrules").value = state.rulesText; $("#rawkw").value = serializeShortcuts(state.shortcuts);
-  renderContainers(); renderSites(); renderBookmarks(); renderProblems();
+  renderContainers(); renderSites(); renderBookmarks(); renderProblems(); renderAccount();
   filterRows($("#rules"), $("#rfilter").value); filterRows($("#keywords"), $("#kfilter").value);
 }
 async function load() {

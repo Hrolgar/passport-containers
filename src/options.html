@@ -14,7 +14,7 @@ td.narrow{width:120px}td.act{width:36px;text-align:right}td.dotcell{width:24px}t
 </style></head><body>
 <nav>
   <div class="brand"><img src="icons/passport.svg" alt=""><h1>Passport</h1></div>
-  <a href="#sites" data-tab="sites">Sites</a><a href="#rules" data-tab="rules">Rules</a><a href="#keywords" data-tab="keywords">Keywords</a><a href="#bookmarks" data-tab="bookmarks">Bookmarks</a><a href="#containers" data-tab="containers">Containers</a><a href="#advanced" data-tab="advanced">Advanced</a>
+  <a href="#sites" data-tab="sites">Sites</a><a href="#rules" data-tab="rules">Rules</a><a href="#keywords" data-tab="keywords">Keywords</a><a href="#bookmarks" data-tab="bookmarks">Bookmarks</a><a href="#containers" data-tab="containers">Containers</a><a href="#account" data-tab="account">Mozilla account</a><a href="#advanced" data-tab="advanced">Advanced</a>
   <p class="muted" style="margin-top:18px;font-size:11px" id="synced"></p>
 </nav>
 <main>
@@ -65,6 +65,22 @@ td.narrow{width:120px}td.act{width:36px;text-align:right}td.dotcell{width:24px}t
   </div>
   <table><thead><tr><th class="dotcell"></th><th>Name</th><th>Colour</th><th>Icon</th><th>Used by</th><th>On this machine</th><th></th></tr></thead><tbody id="containers"></tbody></table>
   <div class="actions"><button class="primary" id="savecont">Save changes</button><span class="msg" id="msg-cont"></span><span class="err" id="err-cont"></span></div>
+</section>
+<section id="tab-account">
+  <h1>Mozilla account</h1>
+  <p class="lead">Firefox does not let extensions set bookmark keywords. Connect your Mozilla account and Passport writes keywords through Firefox Sync instead: they become real Firefox keywords, with the top suggestion in the address bar, on every device signed in to the account. Your password is used once to derive the keys and is never stored. Passport keeps the Sync keys on this machine only.</p>
+  <div class="card" id="acc-connected" class="hidden" style="display:none">
+    <div>Connected as <b id="acc-email"></b> <small id="acc-since"></small></div>
+    <div class="actions"><button id="acc-disconnect">Disconnect</button></div>
+  </div>
+  <div class="card" id="acc-form">
+    <div class="split">
+      <div class="field" style="margin-top:0"><label>Email</label><input id="acc-mail" type="email" autocomplete="username"></div>
+      <div class="field" style="margin-top:0"><label>Password</label><input id="acc-pass" type="password" autocomplete="current-password"></div>
+    </div>
+    <div class="field hidden" id="acc-codebox"><label id="acc-codelabel">Code</label><input id="acc-code" inputmode="numeric" autocomplete="one-time-code" style="max-width:200px"></div>
+    <div class="actions"><button class="primary" id="acc-connect">Connect</button><span class="msg" id="acc-msg"></span><span class="err" id="acc-err"></span></div>
+  </div>
 </section>
 <section id="tab-advanced">
   <h1>Advanced</h1>
