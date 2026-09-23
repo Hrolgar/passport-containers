@@ -3,31 +3,51 @@ body{display:grid;grid-template-columns:200px 1fr;min-height:100vh}
 nav{border-right:1px solid var(--line);padding:18px 12px;background:var(--card)}
 nav .brand{display:flex;align-items:center;gap:8px;margin-bottom:18px}nav .brand img{width:22px;height:22px}
 nav a{display:block;padding:7px 10px;border-radius:6px;color:var(--fg);margin-bottom:2px}nav a:hover{background:var(--bg);text-decoration:none}nav a.active{background:var(--accent);color:var(--accent-fg)}
-main{padding:22px 28px;max-width:980px}section{display:none}section.active{display:block}
+main{padding:22px 28px;max-width:1040px}section{display:none}section.active{display:block}
 main h1{font-size:18px;margin-bottom:4px}p.lead{color:var(--muted);margin:0 0 14px}
 textarea{height:300px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}code{background:var(--card);padding:1px 5px;border-radius:4px}
-td.narrow{width:110px}td.act{width:36px;text-align:right}td.dotcell{width:24px}
+td.narrow{width:120px}td.act{width:36px;text-align:right}td.dotcell{width:24px}td.chk,th.chk{width:28px}td.chk input,th.chk input{width:auto;margin:0}
+.toolbar{display:flex;gap:8px;align-items:center;margin:0 0 12px;flex-wrap:wrap}.toolbar input[type=search]{max-width:260px}.toolbar select{width:auto}
+.bulk{display:flex;gap:8px;align-items:center;margin:10px 0 0;padding:8px 10px;border:1px dashed var(--line);border-radius:6px}.bulk select{width:auto}
+.group{margin-bottom:10px}.group>h2{margin:0;cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px}.group>h2 .n{font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0}
+.group.collapsed>.card{display:none}.group>h2::before{content:"\25BE";display:inline-block;width:12px;transition:transform .1s}.group.collapsed>h2::before{transform:rotate(-90deg)}
 </style></head><body>
 <nav>
   <div class="brand"><img src="icons/passport.svg" alt=""><h1>Passport</h1></div>
-  <a href="#sites" data-tab="sites">Sites</a><a href="#rules" data-tab="rules">Rules</a><a href="#keywords" data-tab="keywords">Keywords</a><a href="#containers" data-tab="containers">Containers</a><a href="#advanced" data-tab="advanced">Advanced</a>
+  <a href="#sites" data-tab="sites">Sites</a><a href="#rules" data-tab="rules">Rules</a><a href="#keywords" data-tab="keywords">Keywords</a><a href="#bookmarks" data-tab="bookmarks">Bookmarks</a><a href="#containers" data-tab="containers">Containers</a><a href="#advanced" data-tab="advanced">Advanced</a>
   <p class="muted" style="margin-top:18px;font-size:11px" id="synced"></p>
 </nav>
 <main>
 <section id="tab-sites">
-  <h1>Sites</h1><p class="lead">Everything Passport knows, grouped by site. A <b>rule</b> is the default container for a site. A <b>keyword</b> is a word you type in the URL bar that opens a URL in a chosen container. A <b>bookmark</b> with <code>?passport=</code> picks its own container when clicked.</p>
+  <h1>Sites</h1><p class="lead">Everything Passport knows. A <b>rule</b> is a site's default container. A <b>keyword</b> is a word typed in the URL bar that opens a URL in a chosen container. A <b>bookmark</b> with <code>?passport=</code> picks its own container when clicked.</p>
+  <div class="toolbar">
+    <input type="search" id="sfilter" placeholder="Filter by site, keyword or container">
+    <label>Group by</label><select id="sgroup"><option value="site">site</option><option value="container">container</option></select>
+    <label>Sort</label><select id="ssort"><option value="name">name</option><option value="count">most entries</option></select>
+    <button id="scollapse">Collapse all</button><button id="sexpand">Expand all</button>
+  </div>
   <div id="sites"></div>
 </section>
 <section id="tab-rules">
   <h1>Rules</h1><p class="lead">Where a URL opens by default. Plain patterns match host and path on segment boundaries; regex sees the full URL including the query; glob uses <code>*</code>. The most specific match wins.</p>
-  <table><thead><tr><th>Pattern</th><th class="narrow">Type</th><th>Container</th><th></th></tr></thead><tbody id="rules"></tbody></table>
+  <div class="toolbar"><input type="search" id="rfilter" placeholder="Filter rules"></div>
+  <table><thead><tr><th class="chk"><input type="checkbox" id="rall"></th><th>Pattern</th><th class="narrow">Type</th><th>Container</th><th></th></tr></thead><tbody id="rules"></tbody></table>
   <p class="muted hidden" id="rules-empty">No rules. That is fine: keywords such as <code>pdb</code> live under <a href="#keywords">Keywords</a>. Add a rule only for a site that must always open in one container, whichever way you reach it.</p>
+  <div class="bulk hidden" id="rbulk"><span id="rcount"></span><label>set container</label><span id="rbulkc"></span><button id="rapply">Apply</button><button id="rdelete">Delete selected</button></div>
   <div class="actions"><button id="addrule">Add rule</button><button class="primary" id="saverules">Save</button><span class="msg" id="msg-rules"></span></div>
 </section>
 <section id="tab-keywords">
   <h1>Keywords</h1><p class="lead">Type the keyword alone in the URL bar and the page opens in its container, on any machine signed in to this Firefox account. One word, no spaces.</p>
-  <table><thead><tr><th class="narrow">Keyword</th><th>URL</th><th>Container</th><th></th></tr></thead><tbody id="keywords"></tbody></table>
+  <div class="toolbar"><input type="search" id="kfilter" placeholder="Filter keywords"></div>
+  <table><thead><tr><th class="chk"><input type="checkbox" id="kall"></th><th class="narrow">Keyword</th><th>URL</th><th>Container</th><th></th></tr></thead><tbody id="keywords"></tbody></table>
+  <div class="bulk hidden" id="kbulk"><span id="kcount"></span><label>set container</label><span id="kbulkc"></span><button id="kapply">Apply</button><button id="kdelete">Delete selected</button></div>
   <div class="actions"><button id="addkw">Add keyword</button><button class="primary" id="savekw">Save</button><span class="msg" id="msg-kw"></span></div>
+</section>
+<section id="tab-bookmarks">
+  <h1>Bookmarks</h1><p class="lead">Bookmarks Passport manages: any with <code>?passport=</code> in the URL, and everything in the Passport folder. Container here means the <code>?passport=</code> hint; "none" leaves the rules to decide. Bookmarks sync through Firefox itself.</p>
+  <div class="toolbar"><input type="search" id="bfilter" placeholder="Filter bookmarks"></div>
+  <table><thead><tr><th>Title</th><th>URL</th><th class="narrow">Container</th><th>Folder</th><th></th></tr></thead><tbody id="bookmarks"></tbody></table>
+  <div class="actions"><button class="primary" id="savebm">Save</button><span class="msg" id="msg-bm"></span></div>
 </section>
 <section id="tab-containers">
   <h1>Containers</h1><p class="lead">Every container named in a rule or keyword is created on this machine if missing. Colour and icon apply everywhere.</p>
@@ -41,5 +61,4 @@ td.narrow{width:110px}td.act{width:36px;text-align:right}td.dotcell{width:24px}
   <div class="actions"><button class="primary" id="saveraw">Save both</button><span class="msg" id="msg-raw"></span></div>
 </section>
 </main>
-<datalist id="containerlist"></datalist>
 <script src="matcher.js"></script><script src="options.js"></script></body></html>
