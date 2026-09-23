@@ -46,7 +46,7 @@ Load Temporary Add-on. Temporary add-ons vanish on restart; sign for a permanent
 Every push to `main` runs tests, lint and a build. To publish a new version to
 addons.mozilla.org: bump `version` in `src/manifest.json` and `package.json`, commit, then
 
-    git tag v0.1.2 && git push origin main --tags
+    git tag v0.2.0 && git push origin main --tags
 
 The release workflow submits the version to AMO's listed channel (Mozilla reviews it, usually
 within a day or two) and attaches the source package to a GitHub release. AMO rejects a version
