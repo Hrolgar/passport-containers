@@ -1,5 +1,5 @@
 /* global PassportMatcher */
-const { parseRules, serializeRules, parseShortcuts, serializeShortcuts, containerNames } = PassportMatcher;
+const { parseRules, serializeRules, parseShortcuts, serializeShortcuts, containerNames, findProblems, engineRecognised } = PassportMatcher;
 const COLORS = ["", "blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const ICONS = ["", "fingerprint", "briefcase", "dollar", "cart", "circle", "gift", "vacation", "food", "fruit", "pet", "tree", "chill", "fence"];
 const MENU = "menu________";
@@ -233,18 +233,43 @@ function renderSites() {
     wrap.append(h, card); box.append(wrap);
   }
 }
+// ---------- problems
+let engineName = null;
+function renderProblems() {
+  const box = $("#problems"); box.innerHTML = "";
+  const probs = findProblems({ rules: parseRules(state.rulesText), shortcuts: state.shortcuts, containers: state.containers, engine: engineName === null ? null : engineRecognised(engineName) });
+  box.classList.toggle("hidden", !probs.length);
+  if (!probs.length) return;
+  const wrap = el("div", "group"); const h = el("h2"); h.append(document.createTextNode("Problems"), el("span", "n", String(probs.length))); h.onclick = () => wrap.classList.toggle("collapsed");
+  const card = el("div", "card");
+  for (const p of probs) { const r = el("div", "row"); r.append(el("span", "tag", p.level), el("span", "body", p.text)); r.lastChild.style.whiteSpace = "normal"; if (p.level === "error") r.lastChild.style.color = "var(--danger)"; card.append(r); }
+  wrap.append(h, card); box.append(wrap);
+}
+// ---------- backup / restore
+function download(name, text) { const a = el("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+async function restore(mode) {
+  $("#msg-io").textContent = ""; $("#err-io").textContent = "";
+  const f = $("#importfile").files[0]; if (!f) { $("#err-io").textContent = "Pick a backup file first."; return; }
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || d.app !== "passport-containers") throw new Error("Not a Passport backup.");
+    const r = await browser.runtime.sendMessage({ type: "restore", mode, rulesText: d.rulesText || "", shortcuts: d.shortcuts || {}, containerMeta: d.containerMeta || {} });
+    $("#msg-io").textContent = `Restored: ${r.rules} rules, ${r.keywords} keywords. Synced.`; await load();
+  } catch (e) { $("#err-io").textContent = e.message; }
+}
 // ---------- load / save
 function renderAll() {
   const rb = $("#rules"); rb.innerHTML = ""; const rs = parseRules(state.rulesText); for (const r of rs) rb.append(ruleRow(r));
   $("#rules-empty").classList.toggle("hidden", rs.length > 0);
   const kb = $("#keywords"); kb.innerHTML = ""; for (const [k, v] of Object.entries(state.shortcuts).sort()) kb.append(kwRow(k, v));
   $("#rawrules").value = state.rulesText; $("#rawkw").value = serializeShortcuts(state.shortcuts);
-  renderContainers(); renderSites(); renderBookmarks();
+  renderContainers(); renderSites(); renderBookmarks(); renderProblems();
   filterRows($("#rules"), $("#rfilter").value); filterRows($("#keywords"), $("#kfilter").value);
 }
 async function load() {
   state = await browser.runtime.sendMessage({ type: "get" });
   state.containerMeta = state.containerMeta || {}; state.shortcuts = state.shortcuts || {};
+  try { engineName = (await browser.runtime.sendMessage({ type: "engine" })).name; } catch { engineName = null; }
   await loadFolders(); await collectSites(); renderAll();
   const st = await browser.storage.sync.get("updatedAt");
   $("#synced").textContent = st.updatedAt ? "Last saved " + new Date(st.updatedAt).toLocaleString() : "";
@@ -263,6 +288,8 @@ $("#saverules").onclick = () => saveRules(serializeRules(readRules()), "#msg-rul
 $("#addkw").onclick = () => { $("#keywords").append(kwRow()); $("#keywords").lastChild.children[1].querySelector("input").focus(); };
 $("#savekw").onclick = () => saveKeywords(readKeywords(), "#msg-kw");
 $("#savebm").onclick = saveBookmarks;
+$("#export").onclick = () => download(`passport-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: "passport-containers", version: 1, exported: new Date().toISOString(), rulesText: state.rulesText, shortcuts: state.shortcuts, containerMeta: state.containerMeta }, null, 2));
+$("#importmerge").onclick = () => restore("merge"); $("#importreplace").onclick = () => restore("replace");
 $("#savecont").onclick = saveContainers;
 const newColor = swatchPicker("blue", c => newIcon.recolor(c)), newIcon = iconPicker("fingerprint", "blue");
 $("#newcolor").append(newColor); $("#newicon").append(newIcon);
