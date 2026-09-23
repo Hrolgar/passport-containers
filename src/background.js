@@ -149,3 +149,11 @@ browser.runtime.onMessage.addListener(async msg => {
   }
 });
 reload();
+
+// Right-click on the toolbar icon: straight to a settings tab
+const MENU_TABS = [["rules", "Rules"], ["keywords", "Keywords"], ["containers", "Containers"], ["advanced", "Advanced (raw text)"]];
+for (const [id, title] of MENU_TABS) browser.menus.create({ id: "passport-" + id, title, contexts: ["browser_action"] });
+browser.menus.onClicked.addListener(info => {
+  const tab = String(info.menuItemId).replace("passport-", "");
+  if (MENU_TABS.some(([id]) => id === tab)) browser.tabs.create({ url: browser.runtime.getURL("options.html#" + tab) });
+});

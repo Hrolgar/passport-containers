@@ -137,6 +137,9 @@
     while (out.length && out[out.length - 1].trim() === "") out.pop();
     return out.length ? out.join("\n") + "\n" : "";
   }
-  const api = { parseRules, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
+  function serializeRules(rules) {
+    return rules.map(r => (r.type === "regex" ? "@" : r.type === "glob" ? "!" : "") + r.pattern + " , " + r.container).join("\n") + (rules.length ? "\n" : "");
+  }
+  const api = { parseRules, serializeRules, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

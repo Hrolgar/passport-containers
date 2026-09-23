@@ -22,6 +22,7 @@
     "webRequest",
     "webRequestBlocking",
     "bookmarks",
+    "menus",
     "<all_urls>"
   ],
   "background": {

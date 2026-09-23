@@ -23,33 +23,33 @@ async function passportFolderId() {
 }
 function sameSite(url) { try { return new URL(url).host === host; } catch { return false; } }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function dot(name) { const c = (state.containers || []).find(x => x.name.toLowerCase() === String(name || "").toLowerCase()); const d = el("span", "dot" + (c ? " " + c.color : "")); return d; }
+function row(tag, parts, onRemove) {
+  const r = el("div", "row"); r.append(el("span", "tag", tag));
+  const b = el("span", "body"); for (const p of parts) b.append(typeof p === "string" ? document.createTextNode(p) : p); r.append(b);
+  if (onRemove) { const x = el("button", "ghost", "\u2715"); x.title = "Remove"; x.onclick = onRemove; r.append(x); }
+  return r;
+}
 
 async function renderHave() {
   state = await browser.runtime.sendMessage({ type: "get" });
   const box = $("#have"); box.innerHTML = "";
   const m = await browser.runtime.sendMessage({ type: "match", url: tab.url });
   const cur = state.containers.find(c => c.cookieStoreId === tab.cookieStoreId);
-  $("#cur").textContent = `This tab is in ${cur ? cur.name : "no container"}.`;
-  if (m.container) {
-    const r = el("div", "row"); r.append(el("span", "k", "rule"), el("span", "c", `${m.type === "plain" ? "" : m.type + " "}${m.pattern}  ->  ${m.container}`));
-    const del = el("button", null, "remove"); del.onclick = async () => { await browser.runtime.sendMessage({ type: "deleteRule", pattern: m.pattern }); renderHave(); };
-    r.append(del); box.append(r);
-  }
+  const ti = $("#tabinfo"); ti.innerHTML = ""; ti.append(dot(cur && cur.name), document.createTextNode(cur ? cur.name : "no container"));
+  if (m.container) box.append(row("rule", [m.type === "plain" ? "" : m.type + " ", el("span", "k", m.pattern), "  \u2192  ", dot(m.container), m.container],
+    async () => { await browser.runtime.sendMessage({ type: "deleteRule", pattern: m.pattern }); renderHave(); }));
   const kws = Object.entries(state.shortcuts || {}).filter(([, v]) => sameSite(v.url));
-  for (const [k, v] of kws) {
-    const r = el("div", "row"); r.append(el("span", "k", k), el("span", "c", `${v.container || "default"}  ${v.url.replace(/^https?:\/\//, "")}`));
-    const del = el("button", null, "remove"); del.onclick = async () => { await browser.runtime.sendMessage({ type: "deleteShortcut", keyword: k }); renderHave(); };
-    r.append(del); box.append(r);
-  }
+  for (const [k, v] of kws) box.append(row("keyword", [el("span", "k", k), "  \u2192  ", dot(v.container), v.container || "default", "  ", el("small", null, v.url.replace(/^https?:\/\//, ""))],
+    async () => { await browser.runtime.sendMessage({ type: "deleteShortcut", keyword: k }); renderHave(); }));
   const bms = (await browser.bookmarks.search({})).filter(b => b.url && sameSite(b.url));
   for (const b of bms) {
     const f = folders.find(x => x.id === b.parentId);
     const hint = (() => { try { return new URL(b.url).searchParams.get("passport"); } catch { return null; } })();
-    const r = el("div", "row"); r.append(el("span", "k", "bookmark"), el("span", "c", `${b.title}  in ${f ? f.plain : b.parentId}${hint ? `  opens in ${hint}` : ""}`));
-    const del = el("button", null, "remove"); del.onclick = async () => { await browser.bookmarks.remove(b.id); renderHave(); };
-    r.append(del); box.append(r);
+    box.append(row("bookmark", [b.title, "  ", el("small", null, "in " + (f ? f.plain : b.parentId)), ...(hint ? ["  \u2192  ", dot(hint), hint] : [])],
+      async () => { await browser.bookmarks.remove(b.id); renderHave(); }));
   }
-  if (!m.container && !kws.length && !bms.length) box.append(el("small", null, "nothing yet"));
+  if (!m.container && !kws.length && !bms.length) box.append(el("small", null, "Nothing yet."));
 }
 
 (async () => {
@@ -110,4 +110,5 @@ async function renderHave() {
     } catch (e) { $("#err").textContent = e.message; }
   };
   $("#opt").onclick = e => { e.preventDefault(); browser.runtime.openOptionsPage(); };
+  document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT") $("#add").click(); });
 })();
