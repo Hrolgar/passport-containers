@@ -35,14 +35,21 @@
       setTimeout(() => { if (flow && flow.tabId === tab.id) { flow.reject(new Error("Login timed out.")); flow = null; } }, 10 * 60 * 1000);
     });
   }
-  browser.tabs.onUpdated.addListener(async (tabId, info) => {
-    if (!flow || tabId !== flow.tabId || !info.url) return;
-    const r = F.parseRedirect(info.url, flow.state); if (!r) return;
+  // The redirect address belongs to a retired Mozilla app and forwards elsewhere, so catch the request itself,
+  // take the code, and cancel the navigation before the forward happens.
+  function onRedirect(url, tabId) {
+    if (!flow || tabId !== flow.tabId) return false;
+    const r = F.parseRedirect(url, flow.state); if (!r) return false;
     const f = flow; flow = null;
-    browser.tabs.remove(tabId).catch(() => {});
-    if (r.error) { f.reject(new Error("Mozilla login failed: " + r.error)); return; }
-    try { const acc = await finish(r.code, f); f.resolve({ connected: true, connectedAt: acc.connectedAt }); } catch (e) { f.reject(e); }
-  });
+    setTimeout(() => browser.tabs.remove(tabId).catch(() => {}), 300);
+    if (r.error) { f.reject(new Error("Mozilla login failed: " + r.error)); return true; }
+    finish(r.code, f).then(acc => f.resolve({ connected: true, connectedAt: acc.connectedAt }), e => f.reject(e));
+    return true;
+  }
+  browser.webRequest.onBeforeRequest.addListener(
+    details => (onRedirect(details.url, details.tabId) ? { cancel: true } : {}),
+    { urls: [F.REDIRECT_PREFIX + "*"], types: ["main_frame"] }, ["blocking"]);
+  browser.tabs.onUpdated.addListener((tabId, info) => { if (info.url) onRedirect(info.url, tabId); });
   browser.tabs.onRemoved.addListener(tabId => { if (flow && flow.tabId === tabId) { const f = flow; flow = null; f.reject(new Error("Login window was closed.")); } });
 
   async function disconnect() { const acc = await load(); if (acc && acc.refreshToken) await F.destroyToken(acc.refreshToken); await browser.storage.local.remove(KEY); }

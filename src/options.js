@@ -264,7 +264,7 @@ async function renderAccount() {
   if (st.connected) $("#acc-since").textContent = "since " + new Date(st.connectedAt).toLocaleString();
 }
 $("#acc-connect").onclick = async () => {
-  $("#acc-msg").textContent = "A Mozilla login tab opened. Finish there; this page updates by itself."; $("#acc-err").textContent = "";
+  $("#acc-msg").textContent = "Waiting for you to finish signing in on the Mozilla tab that just opened. When you are done it closes by itself and this page says Connected."; $("#acc-err").textContent = "";
   const b = $("#acc-connect"); b.disabled = true;
   try { const r = await browser.runtime.sendMessage({ type: "accountConnect" }); if (r.error) $("#acc-err").textContent = r.error; else { $("#acc-msg").textContent = "Connected."; await renderAccount(); } }
   finally { b.disabled = false; }
