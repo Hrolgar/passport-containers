@@ -1,5 +1,5 @@
 /* global PassportMatcher, PassportAccount */
-const { parseRules, matchUrl, matchRule, removeRule, containerNames, parseShortcuts, serializeShortcuts, resolveShortcut, expandUrl, searchQuery, containerHint, upsertRule } = PassportMatcher;
+const { parseRules, matchUrl, matchRule, removeRule, containerNames, parseShortcuts, serializeShortcuts, resolveShortcut, expandUrl, searchQuery, containerHint, upsertRule, mergeRules, keyUrl, keywordChanges } = PassportMatcher;
 const COLORS = ["blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const CHUNK = 7000; // storage.sync caps one item at 8 KiB
 
@@ -27,6 +27,31 @@ async function writeSync(rulesText, meta) {
   await browser.storage.sync.set({ ...chunks, containerMeta: meta, updatedAt: Date.now() });
 }
 async function writeShortcuts(map) { await browser.storage.sync.set({ shortcuts: map, updatedAt: Date.now() }); }
+// Every keyword edit goes through here: save the list, then make the Firefox keyword on each affected
+// bookmark match it. Without a Mozilla account only the Passport list changes, and the result says so.
+async function setShortcuts(map) {
+  const before = (await readSync()).shortcuts;
+  await writeShortcuts(map); await reload();
+  return { native: await syncNativeKeywords(before, map) };
+}
+async function syncNativeKeywords(before, after) {
+  const changes = keywordChanges(before, after);
+  if (!changes.length) return { changed: [] };
+  if (!(await PassportAccount.status()).connected) return { notConnected: changes.filter(c => c.keyword).map(c => c.keyword) };
+  const marks = (await browser.bookmarks.search({})).filter(b => b.url);
+  const changed = [], noBookmark = [], failed = []; let wrote = false;
+  for (const c of changes) {
+    const bm = marks.find(b => keyUrl(b.url) === c.url);
+    const label = c.keyword || (c.expect || []).join(", ");
+    if (!bm) { if (c.keyword) noBookmark.push(c.keyword); continue; }
+    try {
+      const r = await PassportAccount.setNativeKeyword(bm.id, c.keyword, { expect: c.expect, nudge: false });
+      if (!r.unchanged) { wrote = true; changed.push(c.keyword ? `${label} on ${bm.title || c.url}` : `removed ${label} from ${bm.title || c.url}`); }
+    } catch (e) { failed.push(`${label}: ${e.message}`); }
+  }
+  if (wrote) await PassportAccount.nudgeSync();
+  return { changed, noBookmark, failed };
+}
 
 // ---------- containers
 async function ensureContainers() {
@@ -187,10 +212,10 @@ browser.runtime.onMessage.addListener(async msg => {
   if (msg.type === "addShortcut") {
     const s = await readSync();
     const map = { ...s.shortcuts, [String(msg.keyword).toLowerCase().split(/\s+/)[0]]: { url: msg.url, container: msg.container || "" } };
-    await writeShortcuts(map); await reload(); return { ok: true };
+    return { ok: true, ...(await setShortcuts(map)) };
   }
-  if (msg.type === "deleteShortcut") { const s = await readSync(); const map = { ...s.shortcuts }; delete map[String(msg.keyword).toLowerCase()]; await writeShortcuts(map); await reload(); return { ok: true }; }
-  if (msg.type === "saveShortcuts") { await writeShortcuts(parseShortcuts(msg.text)); await reload(); return { ok: true, count: Object.keys(shortcuts).length }; }
+  if (msg.type === "deleteShortcut") { const s = await readSync(); const map = { ...s.shortcuts }; delete map[String(msg.keyword).toLowerCase()]; return { ok: true, ...(await setShortcuts(map)) }; }
+  if (msg.type === "saveShortcuts") { const r = await setShortcuts(parseShortcuts(msg.text)); return { ok: true, count: Object.keys(shortcuts).length, ...r }; }
   if (msg.type === "reopen") { const tab = await browser.tabs.get(msg.tabId); await reopenTab(tab, msg.store); return { ok: true }; }
   if (msg.type === "setPaused") { paused = !!msg.paused; await browser.storage.local.set({ paused }); await showPaused(); return { ok: true, paused }; }
   if (msg.type === "engine") { try { const e = (await browser.search.get()).find(x => x.isDefault); return { name: e ? e.name : null }; } catch { return { name: null }; } }
@@ -202,11 +227,11 @@ browser.runtime.onMessage.addListener(async msg => {
   if (msg.type === "restore") {
     // {rulesText, shortcuts, containerMeta}, mode "replace" | "merge"
     const s = await readSync();
-    const rulesText = msg.mode === "merge" ? (s.rulesText.trimEnd() + "\n" + (msg.rulesText || "")).replace(/^\n/, "") : (msg.rulesText || "");
+    const rulesText = msg.mode === "merge" ? mergeRules(s.rulesText, msg.rulesText) : (msg.rulesText || "");
     const sc = msg.mode === "merge" ? { ...s.shortcuts, ...(msg.shortcuts || {}) } : (msg.shortcuts || {});
     const meta = msg.mode === "merge" ? { ...s.containerMeta, ...(msg.containerMeta || {}) } : (msg.containerMeta || {});
-    await writeSync(rulesText, meta); await writeShortcuts(sc); await reload();
-    return { ok: true, rules: rules.length, keywords: Object.keys(shortcuts).length };
+    await writeSync(rulesText, meta); const r = await setShortcuts(sc);
+    return { ok: true, rules: rules.length, keywords: Object.keys(shortcuts).length, ...r };
   }
 });
 

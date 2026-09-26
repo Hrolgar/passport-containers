@@ -72,7 +72,8 @@
     try { const r = await doSetNativeKeyword(bookmarkId, keyword, opts); await browser.storage.local.set({ lastNative: { keyword, bookmarkId, ok: true, at: started, ms: Date.now() - started, ...r } }); return r; }
     catch (e) { await browser.storage.local.set({ lastNative: { keyword, bookmarkId, ok: false, at: started, error: e.message } }); throw e; }
   }
-  async function doSetNativeKeyword(bookmarkId, keyword, { attempts = 3, delayMs = 4000 } = {}) {
+  // expect: clear only if the bookmark's keyword is one of these. nudge: false leaves the sync nudge to the caller.
+  async function doSetNativeKeyword(bookmarkId, keyword, { attempts = 3, delayMs = 4000, expect = null, nudge = true } = {}) {
     const acc = await ready(); const hawk = hawkOf(acc), bulk = bulkOf(acc);
     let rec = null;
     for (let i = 0; i < attempts && !rec; i++) {
@@ -80,10 +81,13 @@
       catch (e) { if (e.status !== 404) throw e; if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs)); }
     }
     if (rec) {
-      if (rec.data.keyword === keyword) return { ok: true, unchanged: true };
+      if ((rec.data.keyword || null) === (keyword || null)) return { ok: true, unchanged: true };
+      if (!keyword && expect && !expect.includes(rec.data.keyword)) return { ok: true, unchanged: true, kept: rec.data.keyword };
       const modified = await F.putRecord(hawk, bulk, "bookmarks", bookmarkId, { ...rec.data, keyword: keyword || null }, rec.modified);
-      await nudgeSync(); return { ok: true, modified };
+      if (nudge) await nudgeSync();
+      return { ok: true, modified };
     }
+    if (!keyword) return { ok: true, unchanged: true };
     // Firefox has not uploaded it yet: write the record ourselves, and add it to the parent's child list.
     const [bm] = await browser.bookmarks.get(bookmarkId);
     const parentSyncId = F.guidToSyncId(bm.parentId);
@@ -98,7 +102,7 @@
       children.splice(Math.min(idx, children.length), 0, bookmarkId);
       await F.putRecord(hawk, bulk, "bookmarks", parentSyncId, { ...parentRec.data, children }, parentRec.modified);
     }
-    await nudgeSync();
+    if (nudge) await nudgeSync();
     return { ok: true, modified, created: true };
   }
   // Firefox syncs immediately once its change score passes a threshold (1000 on a single-device account, each
@@ -111,5 +115,5 @@
   }
   async function status() { const acc = await load(); const { lastNative } = await browser.storage.local.get("lastNative"); return acc ? { connected: true, connectedAt: acc.connectedAt, lastNative } : { connected: false, lastNative }; }
 
-  root.PassportAccount = { connect, disconnect, status, setNativeKeyword, ready, load };
+  root.PassportAccount = { connect, disconnect, status, setNativeKeyword, nudgeSync, ready, load };
 })(globalThis);

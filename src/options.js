@@ -254,7 +254,7 @@ async function restore(mode) {
     const d = JSON.parse(await f.text());
     if (!d || d.app !== "passport-containers") throw new Error("Not a Passport backup.");
     const r = await browser.runtime.sendMessage({ type: "restore", mode, rulesText: d.rulesText || "", shortcuts: d.shortcuts || {}, containerMeta: d.containerMeta || {} });
-    $("#msg-io").textContent = `Restored: ${r.rules} rules, ${r.keywords} keywords. Synced.`; await load();
+    const note = `Restored: ${r.rules} rules, ${r.keywords} keywords. Synced.${nativeNote(r.native)}`; await load(); $("#msg-io").textContent = note;
   } catch (e) { $("#err-io").textContent = e.message; }
 }
 // ---------- Mozilla account
@@ -292,9 +292,21 @@ async function saveRules(text, msgSel) {
   const r = await browser.runtime.sendMessage({ type: "save", rulesText: text, containerMeta: state.containerMeta });
   $(msgSel).textContent = r.ok ? `Saved ${r.count} rules. Synced.` : "Save failed"; await load();
 }
+// What happened to the Firefox keywords on the bookmarks after a keyword save.
+function nativeNote(n) {
+  if (!n) return "";
+  if (n.notConnected) return ` Firefox keywords NOT updated (${n.notConnected.join(", ")}): sign in under Mozilla account.`;
+  const parts = [];
+  if (n.changed && n.changed.length) parts.push(`Firefox keyword ${n.changed.join("; ")}.`);
+  if (n.noBookmark && n.noBookmark.length) parts.push(`No bookmark for ${n.noBookmark.join(", ")}, so Passport keyword only.`);
+  if (n.failed && n.failed.length) parts.push(`Firefox keyword failed: ${n.failed.join("; ")}.`);
+  return parts.length ? " " + parts.join(" ") : "";
+}
 async function saveKeywords(text, msgSel) {
+  $(msgSel).textContent = "Saving, and updating the Firefox keywords on your bookmarks...";
   const r = await browser.runtime.sendMessage({ type: "saveShortcuts", text });
-  $(msgSel).textContent = r.ok ? `Saved ${r.count} keywords. Synced.` : "Save failed"; await load();
+  const note = r.ok ? `Saved ${r.count} keywords. Synced.${nativeNote(r.native)}` : "Save failed";
+  await load(); $(msgSel).textContent = note; return note;
 }
 // ---------- wiring
 $("#addrule").onclick = () => { $("#rules").append(ruleRow()); $("#rules").lastChild.children[1].querySelector("input").focus(); };
@@ -320,7 +332,7 @@ $("#addcont").onclick = async () => {
     $("#newcont").value = ""; $("#msg-cont").textContent = `Created ${name}.`; await load();
   } catch (e) { $("#err-cont").textContent = "Firefox refused: " + e.message; }
 };
-$("#saveraw").onclick = async () => { await saveRules($("#rawrules").value, "#msg-raw"); await saveKeywords($("#rawkw").value, "#msg-raw"); $("#msg-raw").textContent = "Saved. Synced."; };
+$("#saveraw").onclick = async () => { await saveRules($("#rawrules").value, "#msg-raw"); const note = await saveKeywords($("#rawkw").value, "#msg-raw"); $("#msg-raw").textContent = "Rules saved. " + note; };
 $("#rfilter").oninput = () => filterRows($("#rules"), $("#rfilter").value);
 $("#kfilter").oninput = () => filterRows($("#keywords"), $("#kfilter").value);
 $("#bfilter").oninput = () => filterRows($("#bookmarks"), $("#bfilter").value);

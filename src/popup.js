@@ -124,6 +124,8 @@ async function renderHave() {
         $("#msg").textContent = "Waiting for Firefox to upload the bookmark, then setting the keyword...";
         const r = await browser.runtime.sendMessage({ type: "setNativeKeyword", bookmarkId, keyword: kw });
         if (r.error) throw new Error(r.error);
+        // Keep it in Passport's list too, so it can be renamed or removed later from Keywords.
+        await browser.runtime.sendMessage({ type: "addShortcut", keyword: kw, url: tab.url, container: name });
         done.push(`Firefox keyword ${kw} set (arrives on next sync, seconds)`);
       } else if (kw) {
         const existed = !!(state.shortcuts || {})[kw];

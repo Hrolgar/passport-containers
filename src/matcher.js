@@ -176,6 +176,39 @@
   function serializeRules(rules) {
     return rules.map(r => (r.type === "regex" ? "@" : r.type === "glob" ? "!" : "") + r.pattern + " , " + r.container).join("\n") + (rules.length ? "\n" : "");
   }
-  const api = { parseRules, serializeRules, resolveShortcut, expandUrl, findProblems, engineRecognised, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
+  // Merge two rule files, keeping the first copy of each rule line (a merge restore used to double everything).
+  function mergeRules(a, b) {
+    const seen = new Set(); const out = [];
+    for (const l of (String(a || "").trimEnd() + "\n" + String(b || "")).split(/\r?\n/)) {
+      const k = l.trim();
+      if (k && !k.startsWith("#")) { if (seen.has(k)) continue; seen.add(k); }
+      out.push(l);
+    }
+    while (out.length && out[0].trim() === "") out.shift();
+    while (out.length && out[out.length - 1].trim() === "") out.pop();
+    return out.length ? out.join("\n") + "\n" : "";
+  }
+  // The URL a bookmark and a keyword are compared by: container hint dropped, parsed form.
+  function keyUrl(url) {
+    const h = containerHint(url); const u = h ? h.url : url;
+    try { return new URL(u).toString(); } catch { return String(u || ""); }
+  }
+  // What the Firefox keyword on each bookmark should become after the keyword list changed.
+  // A bookmark holds one keyword, so per URL: a keyword that is new wins, otherwise a remaining one,
+  // otherwise it is cleared, but only if it still is one of the keywords that went away (`expect`).
+  function keywordChanges(before, after) {
+    const group = map => { const g = new Map(); for (const [k, v] of Object.entries(map || {})) { const u = keyUrl(v.url); if (!g.has(u)) g.set(u, []); g.get(u).push(k); } return g; };
+    const a = group(before), b = group(after); const out = [];
+    for (const url of new Set([...a.keys(), ...b.keys()])) {
+      const was = (a.get(url) || []).sort(), now = (b.get(url) || []).sort();
+      if (was.join(" ") === now.join(" ")) continue;
+      const added = now.filter(k => !was.includes(k)), removed = was.filter(k => !now.includes(k));
+      if (added.length) out.push({ url, keyword: added[0], expect: null });
+      else if (now.length) out.push({ url, keyword: now[0], expect: removed });
+      else out.push({ url, keyword: null, expect: removed });
+    }
+    return out;
+  }
+  const api = { parseRules, serializeRules, mergeRules, keyUrl, keywordChanges, resolveShortcut, expandUrl, findProblems, engineRecognised, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);
