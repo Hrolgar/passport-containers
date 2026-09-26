@@ -52,7 +52,7 @@
     "96": "icons/icon-96.png",
     "128": "icons/icon-128.png"
   },
-  "homepage_url": "https://hrolgar.com",
+  "homepage_url": "https://hrolgar.com/?utm_source=firefox&utm_medium=extension&utm_campaign=passport-containers&utm_content=addons-manager",
   "omnibox": {
     "keyword": "go"
   },
