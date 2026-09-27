@@ -15,11 +15,12 @@
   <a href="https://addons.mozilla.org/firefox/addon/passport-containers/reviews/"><img src="https://img.shields.io/amo/rating/passport-containers?logo=mozilla&color=20123A" alt="Rating on addons.mozilla.org"></a>
   <a href="https://github.com/hrolgar/passport-containers/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/hrolgar/passport-containers/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/hrolgar/passport-containers" alt="MIT license"></a>
-  <a href="https://ko-fi.com/hrolgar"><img src="https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white" alt="Buy me a coffee on Ko-fi"></a>
 </p>
 
 <p align="center">
   <a href="https://addons.mozilla.org/firefox/addon/passport-containers/"><img src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" height="60" alt="Get the add-on for Firefox"></a>
+  &nbsp;
+  <a href="https://ko-fi.com/J5T627R3F8"><img src="https://ko-fi.com/img/githubbutton_sm.svg" height="60" alt="Support me on Ko-fi"></a>
 </p>
 
 <p align="center">
@@ -139,7 +140,9 @@ version number it has seen before, deleted ones included.
 
 ## Support
 
-Passport is free and stays free. If it saves you some clicks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/hrolgar).
+Passport is free and stays free. If it saves you some clicks, you can buy me a coffee.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/J5T627R3F8)
 
 ## License
 
