@@ -65,3 +65,26 @@ test("keys_jwe decrypts an ECDH-ES A256GCM envelope built the way Mozilla builds
   assert.equal(out.kid, "1700000000000-abc");
   assert.equal(F.hex(out.bundle.encKey), F.hex(kraw.slice(0, 32))); assert.equal(F.hex(out.bundle.hmacKey), F.hex(kraw.slice(32, 64)));
 });
+
+// Cross-check against an independent JOSE implementation. The test above builds its envelope
+// with a hand-written Concat KDF too, so a mistake mirrored on both sides would still pass.
+// Here jose does the server side, so our decryptKeysJwe has to agree with a library we didn't write.
+test("keys_jwe from an independent implementation (jose) decrypts to the same Sync key", async () => {
+  const { CompactEncrypt, importJWK } = await import("jose");
+  const a = await F.beginAuthorization();
+  const ours = JSON.parse(new TextDecoder().decode(F.unb64url(new URL(a.url).searchParams.get("keys_jwk"))));
+  const kraw = crypto.getRandomValues(new Uint8Array(64));
+  const payload = { [F.SCOPE]: { kty: "oct", scope: F.SCOPE, k: F.b64url(kraw), kid: "1700000000000-jose" } };
+  const recipient = await importJWK({ kty: "EC", crv: "P-256", x: ours.x, y: ours.y }, "ECDH-ES");
+  const jwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payload)))
+    .setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+    .encrypt(recipient);
+  const out = await F.decryptKeysJwe(jwe, a.privJwk);
+  assert.equal(out.kid, "1700000000000-jose");
+  assert.equal(F.hex(out.bundle.encKey), F.hex(kraw.slice(0, 32)));
+  assert.equal(F.hex(out.bundle.hmacKey), F.hex(kraw.slice(32, 64)));
+
+  // a flipped byte in the ciphertext must be rejected, not decrypted to garbage
+  const parts = jwe.split("."); const ct = F.unb64url(parts[3]); ct[0] ^= 1; parts[3] = F.b64url(ct);
+  await assert.rejects(F.decryptKeysJwe(parts.join("."), a.privJwk));
+});
