@@ -15,6 +15,7 @@
   <a href="https://addons.mozilla.org/firefox/addon/passport-containers/reviews/"><img src="https://img.shields.io/amo/rating/passport-containers?logo=mozilla&color=20123A" alt="Rating on addons.mozilla.org"></a>
   <a href="https://github.com/hrolgar/passport-containers/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/hrolgar/passport-containers/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/hrolgar/passport-containers" alt="MIT license"></a>
+  <a href="https://ko-fi.com/hrolgar"><img src="https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white" alt="Buy me a coffee on Ko-fi"></a>
 </p>
 
 <p align="center">
@@ -135,6 +136,10 @@ restarts the human review, so publishing is always explicit: bump `version` in
 (`git tag v0.6.0 && git push origin v0.6.0`) or press "Run workflow" on the CI action. That
 submits to AMO's listed channel, tags if needed, and creates a GitHub release. AMO never takes a
 version number it has seen before, deleted ones included.
+
+## Support
+
+Passport is free and stays free. If it saves you some clicks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/hrolgar).
 
 ## License
 
