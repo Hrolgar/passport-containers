@@ -11,6 +11,7 @@
     "sign": "web-ext sign -s src -a dist --channel unlisted"
   },
   "devDependencies": {
+    "jose": "^6.2.12",
     "web-ext": "^8.0.0"
   }
 }
