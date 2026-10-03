@@ -52,14 +52,14 @@
   }
 
   // ---------- HTTP
-  class FxAError extends Error { constructor(status, body) { super(`FxA ${status}: ${typeof body === "string" ? body.slice(0, 300) : JSON.stringify(body).slice(0, 300)}`); this.status = status; this.body = body; this.errno = body && body.errno; } }
+  class FxAError extends Error { constructor(status, body, headers) { super(`FxA ${status}: ${typeof body === "string" ? body.slice(0, 300) : JSON.stringify(body).slice(0, 300)}`); this.status = status; this.body = body; this.errno = body && body.errno; this.headers = headers || null; } }
   async function http(method, url, { body, headers = {}, credentials } = {}) {
     const init = { method, headers: { Accept: "application/json", ...headers } };
     if (body !== undefined) { init.body = typeof body === "string" ? body : JSON.stringify(body); init.headers["Content-Type"] = "application/json"; }
     if (credentials) init.credentials = credentials;
     const r = await fetch(url, init);
     const text = await r.text(); let json = null; try { json = text ? JSON.parse(text) : null; } catch { json = text; }
-    if (!r.ok) throw new FxAError(r.status, json);
+    if (!r.ok) throw new FxAError(r.status, json, r.headers);
     return { json, headers: r.headers };
   }
   async function authRequest(method, path, body, token, tokenType) {

@@ -113,7 +113,7 @@
     return r ? r.keyword : null;
   }
   // Consistency checks shown on the Sites tab
-  function findProblems({ rules = [], shortcuts = {}, containers = [], engine = null } = {}) {
+  function findProblems({ rules = [], shortcuts = {}, containers = [], engine = null, bookmarks = null } = {}) {
     const out = [];
     const seen = new Map();
     for (const r of rules) {
@@ -132,6 +132,22 @@
     const names = new Set(containers.map(c => c.name.toLowerCase()));
     if (containers.length) {
       for (const n of containerNames(rules)) if (n.toLowerCase() !== "default" && !names.has(n.toLowerCase())) out.push({ level: "info", text: `Container ${n} does not exist here yet; it will be created when Passport next loads.` });
+    }
+    // Two keywords for one page: a bookmark holds one Firefox keyword, so only one of them can be native.
+    const byUrl = new Map();
+    for (const [k, v] of Object.entries(shortcuts)) { if (String(v.url).includes("%s")) continue; const u = keyUrl(v.url); byUrl.set(u, [...(byUrl.get(u) || []), k]); }
+    for (const ks of byUrl.values()) if (ks.length > 1) out.push({ level: "info", text: `Keywords ${ks.sort().join(" and ")} open the same page. A bookmark holds one Firefox keyword, so only ${ks[0]} can be native; consider dropping the others.` });
+    if (bookmarks) {
+      const marked = new Set(bookmarks.filter(b => b.url).map(b => keyUrl(b.url)));
+      const noMark = Object.keys(shortcuts).filter(k => !String(shortcuts[k].url).includes("%s") && !marked.has(keyUrl(shortcuts[k].url)));
+      if (noMark.length) out.push({ level: "info", text: `${noMark.length === 1 ? "Keyword" : "Keywords"} ${noMark.sort().join(", ")} ${noMark.length === 1 ? "has" : "have"} no bookmark, so Firefox has no native keyword for ${noMark.length === 1 ? "it" : "them"} (the "Visit" suggestion). Keywords tab: Create missing bookmarks.` });
+      for (const b of bookmarks) {
+        const h = b.url && containerHint(b.url); if (!h || !h.container) continue;
+        const exists = !containers.length || names.has(h.container.toLowerCase());
+        const ruleC = matchUrl(h.url, rules);
+        if (!exists) out.push({ level: "warn", text: `Bookmark ${b.title || h.url} asks for container ${h.container}, which does not exist. Edit its ?passport= value.` });
+        else if (ruleC && ruleC.toLowerCase() !== h.container.toLowerCase()) out.push({ level: "info", text: `Bookmark ${b.title || h.url} carries ?passport=${h.container}, which overrides the rule that sends the site to ${ruleC}. Remove the hint if the rule should decide.` });
+      }
     }
     if (engine === false) out.push({ level: "warn", text: "Your default search engine is not one Passport recognises, so bare keywords in the URL bar will not work. Use the 'go keyword' form, or switch to Google, Bing, DuckDuckGo, Startpage, Ecosia, Brave, Qwant, Yahoo, Yandex or Kagi." });
     return out;
@@ -191,6 +207,59 @@
     while (out.length && out[out.length - 1].trim() === "") out.pop();
     return out.length ? out.join("\n") + "\n" : "";
   }
+  // Merge where the incoming file wins: a rule for the same pattern replaces the current one instead of
+  // sitting next to it (where the earlier, current copy would win and the restore would look ignored).
+  function mergeRulesIncoming(current, incoming) {
+    const keys = new Set(parseRules(incoming).map(r => r.type + ":" + r.pattern));
+    const kept = String(current || "").split(/\r?\n/).filter(l => { const r = parseRules(l)[0]; return !r || !keys.has(r.type + ":" + r.pattern); });
+    return mergeRules(kept.join("\n"), incoming);
+  }
+  // What a restore would change, for the confirmation before it runs.
+  function restoreDiff(cur, inc, mode) {
+    const after = mode === "merge" ? mergeRulesIncoming(cur.rulesText, inc.rulesText) : (inc.rulesText || "");
+    const map = text => new Map(parseRules(text).map(r => [r.type + ":" + r.pattern, r.container]));
+    const a = map(cur.rulesText), b = map(after);
+    const scA = cur.shortcuts || {}, scB = mode === "merge" ? { ...scA, ...(inc.shortcuts || {}) } : (inc.shortcuts || {});
+    const same = (x, y) => x && y && x.url === y.url && (x.container || "") === (y.container || "");
+    return {
+      rulesAdded: [...b.keys()].filter(k => !a.has(k)).length,
+      rulesChanged: [...b.keys()].filter(k => a.has(k) && a.get(k) !== b.get(k)).length,
+      rulesRemoved: [...a.keys()].filter(k => !b.has(k)).length,
+      keywordsAdded: Object.keys(scB).filter(k => !scA[k]).length,
+      keywordsChanged: Object.keys(scB).filter(k => scA[k] && !same(scA[k], scB[k])).length,
+      keywordsRemoved: Object.keys(scA).filter(k => !scB[k]).length,
+    };
+  }
+  // A container renamed (in Passport, in Firefox, or on another machine): every rule, keyword and colour
+  // that named it follows, comments and the order of the file untouched.
+  function renameContainer(rulesText, shortcuts, meta, oldName, newName) {
+    const o = String(oldName).toLowerCase();
+    const lines = String(rulesText || "").split(/\r?\n/).map(l => {
+      const r = parseRules(l)[0];
+      return r && r.container.toLowerCase() === o ? serializeRules([{ ...r, container: newName }]).trimEnd() : l;
+    });
+    const sc = {};
+    for (const [k, v] of Object.entries(shortcuts || {})) {
+      const h = containerHint(v.url);
+      const url = h && h.container.toLowerCase() === o ? withHint(h.url, newName) : v.url;
+      sc[k] = { ...v, url, container: (v.container || "").toLowerCase() === o ? newName : v.container };
+    }
+    const m = { ...(meta || {}) };
+    for (const k of Object.keys(m)) if (k.toLowerCase() === o) { m[newName] = m[k]; delete m[k]; }
+    return { rulesText: lines.join("\n"), shortcuts: sc, meta: m };
+  }
+  // Old container names that were renamed: a bookmark hint or a rule that still says the old name
+  // resolves to the new one instead of recreating an empty container.
+  function resolveAlias(name, aliases) {
+    let n = String(name || ""); const seen = new Set();
+    while (aliases && !seen.has(n.toLowerCase())) {
+      seen.add(n.toLowerCase());
+      const hit = Object.keys(aliases).find(k => k.toLowerCase() === n.toLowerCase());
+      if (!hit) break;
+      n = aliases[hit];
+    }
+    return n;
+  }
   // The URL a bookmark and a keyword are compared by: container hint dropped, parsed form.
   function keyUrl(url) {
     const h = containerHint(url); const u = h ? h.url : url;
@@ -212,6 +281,6 @@
     }
     return out;
   }
-  const api = { parseRules, serializeRules, mergeRules, keyUrl, keywordChanges, resolveShortcut, expandUrl, findProblems, engineRecognised, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
+  const api = { parseRules, serializeRules, mergeRules, mergeRulesIncoming, restoreDiff, renameContainer, resolveAlias, keyUrl, keywordChanges, resolveShortcut, expandUrl, findProblems, engineRecognised, matchUrl, matchRule, removeRule, containerNames, globToRegex, parseShortcuts, serializeShortcuts, searchQuery, keywordFromSearch, containerHint, withHint, upsertRule };
   if (typeof module !== "undefined") module.exports = api; else root.PassportMatcher = api;
 })(typeof self !== "undefined" ? self : this);

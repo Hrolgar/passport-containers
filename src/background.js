@@ -1,5 +1,5 @@
 /* global PassportMatcher, PassportAccount */
-const { parseRules, matchUrl, matchRule, removeRule, containerNames, parseShortcuts, serializeShortcuts, resolveShortcut, expandUrl, searchQuery, containerHint, upsertRule, mergeRules, keyUrl, keywordChanges } = PassportMatcher;
+const { parseRules, matchUrl, matchRule, removeRule, containerNames, parseShortcuts, serializeShortcuts, resolveShortcut, expandUrl, searchQuery, containerHint, upsertRule, mergeRulesIncoming, keyUrl, keywordChanges, renameContainer, resolveAlias, withHint } = PassportMatcher;
 const COLORS = ["blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const CHUNK = 7000; // storage.sync caps one item at 8 KiB
 
@@ -7,6 +7,8 @@ let rules = [];
 let shortcuts = {};              // keyword -> {url, container}
 let containerMeta = {};          // name -> {color, icon}
 let idByName = new Map();        // container name -> cookieStoreId
+let nameById = new Map();        // cookieStoreId -> name, to spot a rename
+let aliases = {};                // old container name -> new name (synced)
 let paused = false;
 let loading = null;
 
@@ -16,7 +18,7 @@ function hashColor(name) { let h = 0; for (const c of name) h = (h * 31 + c.char
 async function readSync() {
   const all = await browser.storage.sync.get(null);
   const parts = Object.keys(all).filter(k => k.startsWith("rules_")).sort((a, b) => +a.slice(6) - +b.slice(6));
-  return { rulesText: parts.map(k => all[k]).join(""), containerMeta: all.containerMeta || {}, shortcuts: all.shortcuts || {} };
+  return { rulesText: parts.map(k => all[k]).join(""), containerMeta: all.containerMeta || {}, shortcuts: all.shortcuts || {}, aliases: all.aliases || {} };
 }
 async function writeSync(rulesText, meta) {
   const all = await browser.storage.sync.get(null);
@@ -55,8 +57,18 @@ async function syncNativeKeywords(before, after) {
 
 // ---------- containers
 async function ensureContainers() {
-  const existing = await browser.contextualIdentities.query({});
+  let existing = await browser.contextualIdentities.query({});
+  // A container renamed on another machine: the rules arrive with the new name while this machine still
+  // has the old one. Rename it here too (logins kept) rather than create an empty container next to it.
+  const wantedNow = new Set([...containerNames(rules), ...Object.values(shortcuts).map(x => x.container).filter(Boolean)].map(n => n.toLowerCase()));
+  for (const c of existing) {
+    const to = resolveAlias(c.name, aliases);
+    if (to !== c.name && wantedNow.has(to.toLowerCase()) && !wantedNow.has(c.name.toLowerCase()) && !existing.some(x => x.name.toLowerCase() === to.toLowerCase())) {
+      await browser.contextualIdentities.update(c.cookieStoreId, { name: to }); c.name = to;
+    }
+  }
   idByName = new Map(existing.map(c => [c.name, c.cookieStoreId]));
+  nameById = new Map(existing.map(c => [c.cookieStoreId, c.name]));
   const findExisting = name => existing.find(c => c.name.toLowerCase() === String(name).toLowerCase());
   // Only what rules and keywords need gets created. Styling for a container that no longer exists
   // and nothing refers to is dropped, so a container deleted in Firefox stays deleted.
@@ -80,17 +92,16 @@ async function ensureContainers() {
 }
 function storeFor(name) {
   if (!name) return null;
-  const n = String(name).trim().toLowerCase();
-  if (n === "default") return "firefox-default";
-  if (idByName.has(name)) return idByName.get(name);
-  for (const [k, v] of idByName) if (k.toLowerCase() === n) return v;
-  return null;
+  const direct = n => { const l = n.toLowerCase(); if (l === "default") return "firefox-default"; if (idByName.has(n)) return idByName.get(n); for (const [k, v] of idByName) if (k.toLowerCase() === l) return v; return null; };
+  // A container that really has this name wins; only a name that no longer exists goes through the aliases.
+  const raw = String(name).trim();
+  return direct(raw) || direct(resolveAlias(raw, aliases));
 }
 function targetStore(url) { return storeFor(matchUrl(url, rules)); }
 
 async function load() {
-  const { rulesText, containerMeta: meta, shortcuts: sc } = await readSync();
-  rules = parseRules(rulesText); containerMeta = meta; shortcuts = sc;
+  const { rulesText, containerMeta: meta, shortcuts: sc, aliases: al } = await readSync();
+  rules = parseRules(rulesText); containerMeta = meta; shortcuts = sc; aliases = al;
   paused = !!(await browser.storage.local.get("paused")).paused;
   await ensureContainers();
   await showPaused();
@@ -200,6 +211,53 @@ browser.contextualIdentities.onRemoved.addListener(async info => {
   if (name && containerMeta[name]) { delete containerMeta[name]; await browser.storage.sync.set({ containerMeta }); }
   reload();
 });
+// Renamed in Firefox (or by Passport's own Containers tab): rules, keywords and colours follow, and the old
+// name is remembered so bookmark hints and other machines resolve it instead of recreating it empty.
+browser.contextualIdentities.onUpdated.addListener(async info => {
+  const c = info && info.contextualIdentity; if (!c) return;
+  await loading;
+  const old = nameById.get(c.cookieStoreId);
+  if (!old) { reload(); return; }
+  if (old === c.name) {
+    // Colour or icon changed in Firefox's own settings: keep it, rather than put the stored one back.
+    const s = await readSync(); const m = s.containerMeta[c.name];
+    if (m && (m.color !== c.color || m.icon !== c.icon)) await writeSync(s.rulesText, { ...s.containerMeta, [c.name]: { ...m, color: c.color, icon: c.icon } });
+    return;
+  }
+  nameById.set(c.cookieStoreId, c.name); idByName.delete(old); idByName.set(c.name, c.cookieStoreId);
+  const s = await readSync();
+  const r = renameContainer(s.rulesText, s.shortcuts, s.containerMeta, old, c.name);
+  const al = { ...s.aliases };
+  for (const k of Object.keys(al)) if (al[k].toLowerCase() === old.toLowerCase()) al[k] = c.name;
+  al[old] = c.name;
+  for (const k of Object.keys(al)) if (k.toLowerCase() === c.name.toLowerCase()) delete al[k];
+  await browser.storage.sync.set({ aliases: al });
+  await writeSync(r.rulesText, r.meta); await writeShortcuts(r.shortcuts); await reload();
+});
+// Bookmarks for keywords that have none, so Firefox gets a native keyword ("Visit" suggestion) for them.
+// They go in Bookmarks menu, Passport keywords, one folder per container.
+async function createMissingBookmarks() {
+  const s = await readSync();
+  const marks = (await browser.bookmarks.search({})).filter(b => b.url);
+  const have = new Set(marks.map(b => keyUrl(b.url)));
+  const missing = {}; const seen = new Set();
+  for (const [k, v] of Object.entries(s.shortcuts).sort()) {
+    const u = keyUrl(v.url);
+    if (String(v.url).includes("%s") || have.has(u) || seen.has(u)) continue;
+    seen.add(u); missing[k] = v;
+  }
+  const keys = Object.keys(missing); if (!keys.length) return { created: [] };
+  const folderIn = async (parentId, title) => (await browser.bookmarks.getChildren(parentId)).find(x => !x.url && x.title === title) || browser.bookmarks.create({ parentId, title });
+  const root = await folderIn("menu________", "Passport keywords");
+  for (const k of keys) {
+    const v = missing[k]; const f = await folderIn(root.id, v.container || "No container");
+    let url = v.url; try { if (v.container) url = withHint(v.url, v.container); } catch { /* not a URL we can tag */ }
+    await browser.bookmarks.create({ parentId: f.id, title: k, url });
+  }
+  if (!(await PassportAccount.status()).connected) return { created: keys, notConnected: keys };
+  await PassportAccount.nudgeSync(); await new Promise(r => setTimeout(r, 8000)); // let Firefox upload the new folder first
+  return { created: keys, native: await syncNativeKeywords({}, missing) };
+}
 browser.runtime.onMessage.addListener(async msg => {
   if (msg.type === "get") {
     await loading; const s = await readSync();
@@ -224,10 +282,18 @@ browser.runtime.onMessage.addListener(async msg => {
   if (msg.type === "accountConnect") { try { return await PassportAccount.connect(); } catch (e) { return { error: e.message }; } }
   if (msg.type === "accountDisconnect") { await PassportAccount.disconnect(); return { ok: true }; }
   if (msg.type === "setNativeKeyword") { try { return await PassportAccount.setNativeKeyword(msg.bookmarkId, msg.keyword); } catch (e) { return { error: e.message }; } }
+  if (msg.type === "createMissingBookmarks") { try { return await createMissingBookmarks(); } catch (e) { return { error: e.message }; } }
+  if (msg.type === "undoRestore") {
+    const { preRestore } = await browser.storage.local.get("preRestore");
+    if (!preRestore) return { error: "Nothing to undo." };
+    msg = { type: "restore", mode: "replace", ...preRestore };
+  }
   if (msg.type === "restore") {
-    // {rulesText, shortcuts, containerMeta}, mode "replace" | "merge"
+    // {rulesText, shortcuts, containerMeta}, mode "replace" | "merge". What was there is kept locally first,
+    // so one wrong file can be undone (Advanced, Undo last restore).
     const s = await readSync();
-    const rulesText = msg.mode === "merge" ? mergeRules(s.rulesText, msg.rulesText) : (msg.rulesText || "");
+    await browser.storage.local.set({ preRestore: { at: Date.now(), rulesText: s.rulesText, shortcuts: s.shortcuts, containerMeta: s.containerMeta } });
+    const rulesText = msg.mode === "merge" ? mergeRulesIncoming(s.rulesText, msg.rulesText) : (msg.rulesText || "");
     const sc = msg.mode === "merge" ? { ...s.shortcuts, ...(msg.shortcuts || {}) } : (msg.shortcuts || {});
     const meta = msg.mode === "merge" ? { ...s.containerMeta, ...(msg.containerMeta || {}) } : (msg.containerMeta || {});
     await writeSync(rulesText, meta); const r = await setShortcuts(sc);
