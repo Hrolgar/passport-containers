@@ -1,5 +1,6 @@
 // Rule format (Containerise compatible, one per line):
-//   host/path , Container          plain: host + path prefix, on segment boundaries (query ignored)
+//   host/path , Container          plain: host + path prefix, on segment boundaries (query ignored);
+//                                  example.com also covers www.example.com
 //   @regex , Container             regex tested against the full URL
 //   !host/*/x , Container          glob on host + path (* = any run of characters)
 //   # comment
@@ -40,7 +41,9 @@
     for (const r of rules) {
       let hit = false;
       try {
-        if (r.type === "plain") hit = plainMatches(hostPath, r.pattern);
+        // A plain rule for example.com also covers www.example.com: sites redirect between the
+        // two and nobody writes the rule twice. A rule that names www. itself still matches only www.
+        if (r.type === "plain") hit = plainMatches(hostPath, r.pattern) || (u.host.startsWith("www.") && plainMatches(hostPath.slice(4), r.pattern));
         else if (r.type === "regex") hit = new RegExp(r.pattern).test(url);
         else if (r.type === "glob") hit = globToRegex(r.pattern).test(hostPath);
       } catch { /* bad regex: skip the rule */ }
