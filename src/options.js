@@ -1,5 +1,5 @@
 /* global PassportMatcher */
-const { parseRules, serializeRules, parseShortcuts, serializeShortcuts, containerNames, findProblems, engineRecognised } = PassportMatcher;
+const { parseRules, serializeRules, parseShortcuts, serializeShortcuts, containerNames, findProblems, engineRecognised, restoreDiff } = PassportMatcher;
 const COLORS = ["", "blue", "turquoise", "green", "yellow", "orange", "red", "pink", "purple"];
 const ICONS = ["", "fingerprint", "briefcase", "dollar", "cart", "circle", "gift", "vacation", "food", "fruit", "pet", "tree", "chill", "fence"];
 const MENU = "menu________";
@@ -235,9 +235,11 @@ function renderSites() {
 }
 // ---------- problems
 let engineName = null;
-function renderProblems() {
+let allBookmarks = null;
+async function renderProblems() {
+  try { allBookmarks = (await browser.bookmarks.search({})).filter(b => b.url); } catch { allBookmarks = null; }
   const box = $("#problems"); box.innerHTML = "";
-  const probs = findProblems({ rules: parseRules(state.rulesText), shortcuts: state.shortcuts, containers: state.containers, engine: engineName === null ? null : engineRecognised(engineName) });
+  const probs = findProblems({ rules: parseRules(state.rulesText), shortcuts: state.shortcuts, containers: state.containers, engine: engineName === null ? null : engineRecognised(engineName), bookmarks: allBookmarks });
   box.classList.toggle("hidden", !probs.length);
   if (!probs.length) return;
   const wrap = el("div", "group"); const h = el("h2"); h.append(document.createTextNode("Problems"), el("span", "n", String(probs.length))); h.onclick = () => wrap.classList.toggle("collapsed");
@@ -253,10 +255,36 @@ async function restore(mode) {
   try {
     const d = JSON.parse(await f.text());
     if (!d || d.app !== "passport-containers") throw new Error("Not a Passport backup.");
+    const x = restoreDiff(state, { rulesText: d.rulesText || "", shortcuts: d.shortcuts || {} }, mode);
+    const summary = `Rules: ${x.rulesAdded} added, ${x.rulesChanged} changed, ${x.rulesRemoved} removed.\nKeywords: ${x.keywordsAdded} added, ${x.keywordsChanged} changed, ${x.keywordsRemoved} removed.`;
+    if (!confirm(`${mode === "merge" ? "Merge" : "Replace everything with"} ${f.name}?\n\n${summary}\n\nWhat you have now is kept, so this can be undone.`)) { $("#msg-io").textContent = "Restore cancelled."; return; }
     const r = await browser.runtime.sendMessage({ type: "restore", mode, rulesText: d.rulesText || "", shortcuts: d.shortcuts || {}, containerMeta: d.containerMeta || {} });
     const note = `Restored: ${r.rules} rules, ${r.keywords} keywords. Synced.${nativeNote(r.native)}`; await load(); $("#msg-io").textContent = note;
   } catch (e) { $("#err-io").textContent = e.message; }
+  await renderUndo();
 }
+async function renderUndo() {
+  const { preRestore } = await browser.storage.local.get("preRestore");
+  const b = $("#undorestore"); b.classList.toggle("hidden", !preRestore);
+  if (preRestore) b.textContent = `Undo last restore (${new Date(preRestore.at).toLocaleString()})`;
+}
+$("#undorestore").onclick = async () => {
+  $("#msg-io").textContent = ""; $("#err-io").textContent = "";
+  if (!confirm("Put back what you had before the last restore?")) return;
+  const r = await browser.runtime.sendMessage({ type: "undoRestore" });
+  if (r.error) { $("#err-io").textContent = r.error; return; }
+  await load(); $("#msg-io").textContent = `Undone: ${r.rules} rules, ${r.keywords} keywords.${nativeNote(r.native)}`; await renderUndo();
+};
+$("#mkbookmarks").onclick = async () => {
+  $("#msg-mkb").textContent = "Working (Firefox needs a few seconds per keyword)..."; $("#err-mkb").textContent = "";
+  const b = $("#mkbookmarks"); b.disabled = true;
+  try {
+    const r = await browser.runtime.sendMessage({ type: "createMissingBookmarks" });
+    if (r.error) { $("#err-mkb").textContent = r.error; $("#msg-mkb").textContent = ""; return; }
+    $("#msg-mkb").textContent = r.created.length ? `Created ${r.created.length} bookmark${r.created.length === 1 ? "" : "s"} in Bookmarks menu, Passport keywords.${r.notConnected ? " Sign in under Mozilla account to make them native keywords." : nativeNote(r.native)}` : "Every keyword already has a bookmark.";
+    await renderProblems();
+  } finally { b.disabled = false; }
+};
 // ---------- Mozilla account
 async function renderAccount() {
   const st = await browser.runtime.sendMessage({ type: "accountStatus" });
@@ -277,7 +305,7 @@ function renderAll() {
   $("#rules-empty").classList.toggle("hidden", rs.length > 0);
   const kb = $("#keywords"); kb.innerHTML = ""; for (const [k, v] of Object.entries(state.shortcuts).sort()) kb.append(kwRow(k, v));
   $("#rawrules").value = state.rulesText; $("#rawkw").value = serializeShortcuts(state.shortcuts);
-  renderContainers(); renderSites(); renderBookmarks(); renderProblems(); renderAccount();
+  renderContainers(); renderSites(); renderBookmarks(); renderProblems(); renderAccount(); renderUndo();
   filterRows($("#rules"), $("#rfilter").value); filterRows($("#keywords"), $("#kfilter").value);
 }
 async function load() {

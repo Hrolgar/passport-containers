@@ -73,12 +73,25 @@
     catch (e) { await browser.storage.local.set({ lastNative: { keyword, bookmarkId, ok: false, at: started, error: e.message } }); throw e; }
   }
   // expect: clear only if the bookmark's keyword is one of these. nudge: false leaves the sync nudge to the caller.
-  async function doSetNativeKeyword(bookmarkId, keyword, { attempts = 3, delayMs = 4000, expect = null, nudge = true } = {}) {
+  // A write that loses a race with Firefox's own upload (412 Precondition Failed) is redone on the fresh record.
+  async function doSetNativeKeyword(bookmarkId, keyword, opts = {}) {
+    for (let round = 0; ; round++) {
+      try { return await setOnce(bookmarkId, keyword, opts); }
+      catch (e) { if (e.status !== 412 || round >= 2) throw e; await new Promise(r => setTimeout(r, 1000)); }
+    }
+  }
+  async function setOnce(bookmarkId, keyword, { attempts = 3, delayMs = 4000, expect = null, nudge = true } = {}) {
     const acc = await ready(); const hawk = hawkOf(acc), bulk = bulkOf(acc);
-    let rec = null;
+    let rec = null; let missingSince = null;
     for (let i = 0; i < attempts && !rec; i++) {
       try { rec = await F.getRecord(hawk, bulk, "bookmarks", bookmarkId); }
-      catch (e) { if (e.status !== 404) throw e; if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs)); }
+      catch (e) {
+        if (e.status !== 404) throw e;
+        // The server's own clock at the moment the record was missing: the fallback write below is only
+        // accepted if nobody (Firefox) has written the record since.
+        const ts = e.headers && e.headers.get && e.headers.get("X-Weave-Timestamp"); if (ts) missingSince = ts;
+        if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
+      }
     }
     if (rec) {
       if ((rec.data.keyword || null) === (keyword || null)) return { ok: true, unchanged: true };
@@ -95,7 +108,7 @@
     try { parentRec = await F.getRecord(hawk, bulk, "bookmarks", parentSyncId); parentTitle = parentRec.data.title || ""; } catch (e) { if (e.status !== 404) throw e; }
     if (!parentRec) throw new Error("The folder holding this bookmark is not on the server yet. Wait for Firefox to sync once, then try again.");
     const record = { id: bookmarkId, type: "bookmark", title: bm.title || "", bmkUri: bm.url, description: null, loadInSidebar: false, tags: [], keyword: keyword || null, parentid: parentSyncId, parentName: parentTitle, dateAdded: bm.dateAdded || Date.now() };
-    const modified = await F.putRecord(hawk, bulk, "bookmarks", bookmarkId, record);
+    const modified = await F.putRecord(hawk, bulk, "bookmarks", bookmarkId, record, missingSince || undefined);
     const children = Array.isArray(parentRec.data.children) ? parentRec.data.children.slice() : [];
     if (!children.includes(bookmarkId)) {
       const siblings = await browser.bookmarks.getChildren(bm.parentId); const idx = Math.max(0, siblings.findIndex(x => x.id === bookmarkId));

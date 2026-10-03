@@ -47,7 +47,9 @@ Firefox sticks. Runs in Firefox and Zen.
 - **One-click setup from the popup.** Rule, bookmark and keyword for the current site in one go.
 - **Several containers per site.** `?passport=Work` on a bookmark URL picks the container; the parameter is stripped before the site sees it.
 - **Reopen and pause.** Move a tab to another container, or stop all routing until you resume.
-- **Problems view, backup and restore.** Duplicate rules, broken regex and missing containers are flagged; everything exports to one JSON file.
+- **Renames follow.** Rename a container in Firefox and the rules, keywords, bookmark hints and colours move with it, on every device.
+- **Problems view.** Duplicate rules and keywords, broken regex, missing containers, keywords without a bookmark and bookmark hints that point nowhere are flagged. "Create missing bookmarks" on the Keywords tab fixes the last one.
+- **Backup and restore.** Everything exports to one JSON file. Restore shows what it will change first, merge lets the file win where both have the same rule, and the last restore can be undone.
 
 <p align="center">
   <img src="docs/popup.png" width="380" alt="The popup: what this site has, reopen in another container, add a keyword">
