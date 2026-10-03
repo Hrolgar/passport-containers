@@ -136,3 +136,15 @@ test("findProblems flags duplicates, bad regex, plain-with-query, keyword/rule d
   assert.equal(findProblems({ rules: parseRules("a.example , Work\n"), shortcuts: {}, containers: [{ name: "Work" }], engine: true }).length, 0);
   assert.equal(engineRecognised("Google"), true); assert.equal(engineRecognised("DuckDuckGo"), true); assert.equal(engineRecognised("Mojeek"), false);
 });
+
+test("a plain rule also covers the www. host, and only that", () => {
+  const r = parseRules("freelancer.com , Work\ngithub.com/acme-corp , Client A\nwww.only.example , Personal");
+  assert.equal(matchUrl("https://www.freelancer.com/dashboard", r), "Work");
+  assert.equal(matchUrl("https://freelancer.com/dashboard", r), "Work");
+  assert.equal(matchUrl("https://www.github.com/acme-corp/repo", r), "Client A");
+  assert.equal(matchUrl("https://api.freelancer.com/x", r), null);
+  assert.equal(matchUrl("https://notfreelancer.com/", r), null);
+  assert.equal(matchUrl("https://wwwfreelancer.com/", r), null);
+  assert.equal(matchUrl("https://only.example/", r), null);
+  assert.equal(matchUrl("https://www.only.example/a", r), "Personal");
+});
