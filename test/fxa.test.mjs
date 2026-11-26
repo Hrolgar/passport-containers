@@ -15,7 +15,7 @@ test("payload encrypt/decrypt round-trips and detects tampering", async () => {
   const bundle = { encKey: F.unhex("00".repeat(32)), hmacKey: F.unhex("11".repeat(32)) };
   const enc = await F.encryptPayload(JSON.stringify({ id: "abc", keyword: "kfiken" }), bundle);
   assert.deepEqual(JSON.parse(await F.decryptPayload(enc, bundle)), { id: "abc", keyword: "kfiken" });
-  const bad = JSON.parse(enc); bad.hmac = "00" + bad.hmac.slice(2);
+  const bad = JSON.parse(enc); bad.hmac = (bad.hmac.startsWith("00") ? "ff" : "00") + bad.hmac.slice(2);  // always a real change (random IV)
   await assert.rejects(F.decryptPayload(JSON.stringify(bad), bundle), /HMAC/);
 });
 test("hawk header has the required fields and a payload hash only when there is a body", async () => {
