@@ -211,6 +211,12 @@ browser.contextualIdentities.onRemoved.addListener(async info => {
   if (name && containerMeta[name]) { delete containerMeta[name]; await browser.storage.sync.set({ containerMeta }); }
   reload();
 });
+// Made by hand in Firefox: learn its name right away, so a ?passport= hint or rule naming it routes there
+// without a restart. Only the lookup maps change; a full reload here would race ensureContainers' own creates.
+browser.contextualIdentities.onCreated.addListener(info => {
+  const c = info && info.contextualIdentity; if (!c) return;
+  idByName.set(c.name, c.cookieStoreId); nameById.set(c.cookieStoreId, c.name);
+});
 // Renamed in Firefox (or by Passport's own Containers tab): rules, keywords and colours follow, and the old
 // name is remembered so bookmark hints and other machines resolve it instead of recreating it empty.
 browser.contextualIdentities.onUpdated.addListener(async info => {
